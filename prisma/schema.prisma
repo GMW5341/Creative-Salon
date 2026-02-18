@@ -1,0 +1,258 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── 사용자 ───
+model User {
+  id             String   @id @default(uuid())
+  email          String   @unique
+  name           String
+  passwordHash   String
+  profileImage   String?
+  bio            String?
+  role           String   @default("MEMBER") // ADMIN, MEMBER
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  memberships    GroupMember[]
+  createdGroups  Group[]          @relation("GroupCreator")
+  discussions    Discussion[]
+  comments       Comment[]
+  resources      Resource[]
+  payments       Payment[]
+  invitations    Invitation[]     @relation("InvitedBy")
+  notifications  Notification[]
+}
+
+// ─── 독서 모임 (그룹) ───
+model Group {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  coverImage  String?
+  isPublic    Boolean  @default(true)
+  maxMembers  Int      @default(20)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  creatorId   String
+  creator     User     @relation("GroupCreator", fields: [creatorId], references: [id])
+
+  members     GroupMember[]
+  books       Book[]
+  meetings    Meeting[]
+  discussions Discussion[]
+  resources   Resource[]
+  payments    Payment[]
+  invitations Invitation[]
+  fees        GroupFee[]
+}
+
+// ─── 그룹 멤버십 ───
+model GroupMember {
+  id        String   @id @default(uuid())
+  role      String   @default("MEMBER") // ADMIN, MODERATOR, MEMBER
+  joinedAt  DateTime @default(now())
+  status    String   @default("ACTIVE") // ACTIVE, INACTIVE, BANNED
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groupId])
+}
+
+// ─── 도서 ───
+model Book {
+  id          String   @id @default(uuid())
+  title       String
+  author      String
+  isbn        String?
+  coverImage  String?
+  description String?
+  status      String   @default("READING") // PROPOSED, READING, COMPLETED
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime @default(now())
+
+  groupId     String
+  group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  meetings    Meeting[]
+  discussions Discussion[]
+  resources   Resource[]
+}
+
+// ─── 모임 (오프라인/온라인 미팅) ───
+model Meeting {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  date        DateTime
+  location    String?  // 오프라인 장소 or 온라인 링크
+  type        String   @default("OFFLINE") // OFFLINE, ONLINE
+  status      String   @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
+  summary     String?  // 모임 요약
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  groupId     String
+  group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  bookId      String?
+  book        Book?    @relation(fields: [bookId], references: [id])
+
+  notes       MeetingNote[]
+  discussions Discussion[]
+  attendances Attendance[]
+}
+
+// ─── 모임 기록 (대화/노트) ───
+model MeetingNote {
+  id        String   @id @default(uuid())
+  content   String
+  type      String   @default("NOTE") // NOTE, QUOTE, KEY_POINT, ACTION_ITEM
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  meetingId String
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+}
+
+// ─── 출석 ───
+model Attendance {
+  id        String   @id @default(uuid())
+  status    String   @default("PRESENT") // PRESENT, ABSENT, LATE
+
+  meetingId String
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  memberName String  // 멤버 이름 (비회원도 출석 가능)
+
+  @@unique([meetingId, memberName])
+}
+
+// ─── 토론/게시판 ───
+model Discussion {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  category  String   @default("GENERAL") // GENERAL, BOOK_REVIEW, QUESTION, RECOMMENDATION
+  isPinned  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  bookId    String?
+  book      Book?    @relation(fields: [bookId], references: [id])
+  meetingId String?
+  meeting   Meeting? @relation(fields: [meetingId], references: [id])
+
+  comments  Comment[]
+}
+
+// ─── 댓글 ───
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  authorId     String
+  author       User       @relation(fields: [authorId], references: [id])
+  discussionId String
+  discussion   Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  parentId     String?
+  parent       Comment?   @relation("CommentReplies", fields: [parentId], references: [id])
+  replies      Comment[]  @relation("CommentReplies")
+}
+
+// ─── 자료실 ───
+model Resource {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  type        String   @default("DOCUMENT") // DOCUMENT, LINK, IMAGE, PDF
+  url         String?
+  content     String?
+  tags        String?  // JSON 배열로 저장
+  downloads   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  uploaderId  String
+  uploader    User     @relation(fields: [uploaderId], references: [id])
+  groupId     String
+  group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  bookId      String?
+  book        Book?    @relation(fields: [bookId], references: [id])
+}
+
+// ─── 결제/회비 관리 ───
+model GroupFee {
+  id        String   @id @default(uuid())
+  name      String
+  amount    Int
+  currency  String   @default("KRW")
+  period    String   @default("MONTHLY") // MONTHLY, PER_MEETING, ONE_TIME
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  payments  Payment[]
+}
+
+model Payment {
+  id          String   @id @default(uuid())
+  amount      Int
+  currency    String   @default("KRW")
+  status      String   @default("PENDING") // PENDING, COMPLETED, FAILED, REFUNDED
+  method      String?  // CARD, BANK_TRANSFER, CASH
+  memo        String?
+  paidAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  groupId     String
+  group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  feeId       String?
+  fee         GroupFee? @relation(fields: [feeId], references: [id])
+}
+
+// ─── 초대 ───
+model Invitation {
+  id        String   @id @default(uuid())
+  email     String
+  token     String   @unique @default(uuid())
+  status    String   @default("PENDING") // PENDING, ACCEPTED, EXPIRED
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  inviterId String
+  inviter   User     @relation("InvitedBy", fields: [inviterId], references: [id])
+}
+
+// ─── 알림 ───
+model Notification {
+  id        String   @id @default(uuid())
+  type      String   // MEETING_REMINDER, NEW_DISCUSSION, PAYMENT_DUE, INVITATION
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+}
