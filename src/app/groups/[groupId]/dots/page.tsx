@@ -448,7 +448,8 @@ export default function DotBoardPage() {
               음성으로 기록하기
             </h3>
             <VoiceRecorder
-              onTranscript={handleTranscript}
+              groupId={groupId}
+              onTranscriptReady={handleTranscript}
               disabled={extracting}
             />
             {extracting && (

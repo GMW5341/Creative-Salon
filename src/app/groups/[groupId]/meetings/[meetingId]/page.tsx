@@ -120,7 +120,7 @@ export default function MeetingDetailPage() {
         <h2 className="text-sm font-semibold text-gray-900 mb-3">
           음성으로 기록하기
         </h2>
-        <VoiceRecorder onTranscript={handleTranscript} disabled={extracting} />
+        <VoiceRecorder groupId={groupId} meetingId={meetingId} onTranscriptReady={handleTranscript} disabled={extracting} />
         {extracting && (
           <div className="mt-3 flex items-center gap-2 text-sm text-amber-700">
             <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
