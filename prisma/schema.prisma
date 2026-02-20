@@ -19,14 +19,18 @@ model User {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  memberships    GroupMember[]
-  createdGroups  Group[]          @relation("GroupCreator")
-  discussions    Discussion[]
-  comments       Comment[]
-  resources      Resource[]
-  payments       Payment[]
-  invitations    Invitation[]     @relation("InvitedBy")
-  notifications  Notification[]
+  memberships      GroupMember[]
+  createdGroups    Group[]          @relation("GroupCreator")
+  discussions      Discussion[]
+  comments         Comment[]
+  resources        Resource[]
+  payments         Payment[]
+  invitations      Invitation[]     @relation("InvitedBy")
+  notifications    Notification[]
+  dots             Dot[]
+  dotConnections   DotConnection[]
+  voiceRecordings  VoiceRecording[]
+  subscriptions    Subscription[]
 }
 
 // ─── 독서 모임 (그룹) ───
@@ -43,14 +47,17 @@ model Group {
   creatorId   String
   creator     User     @relation("GroupCreator", fields: [creatorId], references: [id])
 
-  members     GroupMember[]
-  books       Book[]
-  meetings    Meeting[]
-  discussions Discussion[]
-  resources   Resource[]
-  payments    Payment[]
-  invitations Invitation[]
-  fees        GroupFee[]
+  members         GroupMember[]
+  books           Book[]
+  meetings        Meeting[]
+  discussions     Discussion[]
+  resources       Resource[]
+  payments        Payment[]
+  invitations     Invitation[]
+  fees            GroupFee[]
+  dots            Dot[]
+  voiceRecordings VoiceRecording[]
+  subscriptions   Subscription[]
 }
 
 // ─── 그룹 멤버십 ───
@@ -107,9 +114,11 @@ model Meeting {
   bookId      String?
   book        Book?    @relation(fields: [bookId], references: [id])
 
-  notes       MeetingNote[]
-  discussions Discussion[]
-  attendances Attendance[]
+  notes           MeetingNote[]
+  discussions     Discussion[]
+  attendances     Attendance[]
+  dots            Dot[]
+  voiceRecordings VoiceRecording[]
 }
 
 // ─── 모임 기록 (대화/노트) ───
@@ -157,6 +166,7 @@ model Discussion {
   meeting   Meeting? @relation(fields: [meetingId], references: [id])
 
   comments  Comment[]
+  dots      Dot[]
 }
 
 // ─── 댓글 ───
@@ -241,6 +251,77 @@ model Invitation {
   group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   inviterId String
   inviter   User     @relation("InvitedBy", fields: [inviterId], references: [id])
+}
+
+// ─── Dot (대화에서 추출된 인사이트 조각) ───
+model Dot {
+  id          String   @id @default(uuid())
+  content     String   // 인사이트 원문
+  summary     String   // AI가 압축한 한 줄 요약
+  tags        String?  // JSON 배열: ["창작", "고통", "언어"]
+  source      String   @default("MANUAL") // MANUAL, VOICE, NOTE, DISCUSSION
+  embedding   String?  // JSON 벡터 (간이 벡터 저장)
+  createdAt   DateTime @default(now())
+
+  // 출처 추적
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id])
+  groupId     String
+  group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  meetingId   String?
+  meeting     Meeting? @relation(fields: [meetingId], references: [id])
+  discussionId String?
+  discussion  Discussion? @relation(fields: [discussionId], references: [id])
+
+  // 연결 관계
+  connectionsFrom DotConnection[] @relation("FromDot")
+  connectionsTo   DotConnection[] @relation("ToDot")
+}
+
+// ─── DotConnection (사용자가 만든 유추/연결) ───
+model DotConnection {
+  id          String   @id @default(uuid())
+  insight     String   // 사용자가 발견한 연결 설명: "둘 다 언어를 통한 변환을 말하고 있다"
+  createdAt   DateTime @default(now())
+
+  fromDotId   String
+  fromDot     Dot      @relation("FromDot", fields: [fromDotId], references: [id], onDelete: Cascade)
+  toDotId     String
+  toDot       Dot      @relation("ToDot", fields: [toDotId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id])
+}
+
+// ─── VoiceRecording (음성 녹음 원본) ───
+model VoiceRecording {
+  id            String   @id @default(uuid())
+  transcript    String?  // STT 변환된 텍스트
+  duration      Int?     // 녹음 길이(초)
+  status        String   @default("PENDING") // PENDING, TRANSCRIBED, PROCESSED
+  dotsExtracted Int      @default(0) // 추출된 dot 수
+  createdAt     DateTime @default(now())
+
+  authorId      String
+  author        User     @relation(fields: [authorId], references: [id])
+  groupId       String
+  group         Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  meetingId     String?
+  meeting       Meeting? @relation(fields: [meetingId], references: [id])
+}
+
+// ─── 구독/플랜 ───
+model Subscription {
+  id        String   @id @default(uuid())
+  plan      String   @default("FREE") // FREE, GROUP_PRO, PERSONAL_PRO
+  status    String   @default("ACTIVE") // ACTIVE, CANCELLED, EXPIRED
+  startDate DateTime @default(now())
+  endDate   DateTime?
+  createdAt DateTime @default(now())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  groupId   String?
+  group     Group?   @relation(fields: [groupId], references: [id], onDelete: Cascade)
 }
 
 // ─── 알림 ───

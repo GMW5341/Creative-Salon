@@ -76,6 +76,12 @@ export default function GroupPage() {
       {/* Navigation */}
       <div className="flex flex-wrap gap-2 mb-8">
         <Link
+          href={`/groups/${groupId}/dots`}
+          className="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-amber-700 transition"
+        >
+          Dot Board
+        </Link>
+        <Link
           href={`/groups/${groupId}/members`}
           className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 transition"
         >

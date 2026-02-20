@@ -11,8 +11,8 @@ const geistSans = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Creative Salon - 독서모임 플랫폼",
-  description: "함께 읽고, 함께 성장하는 독서 커뮤니티 플랫폼",
+  title: "Creative Salon - 대화가 살아있는 지식이 되는 곳",
+  description: "대화에서 인사이트를 추출하고, Dot으로 연결하세요. 휘발되는 대화를 살아있는 집단 사고로 만드는 플랫폼.",
 };
 
 export default function RootLayout({

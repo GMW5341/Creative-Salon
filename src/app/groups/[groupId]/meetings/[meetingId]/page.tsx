@@ -2,6 +2,8 @@
 
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import VoiceRecorder from "@/components/dots/VoiceRecorder";
 
 interface Note {
   id: string;
@@ -20,6 +22,8 @@ export default function MeetingDetailPage() {
   const [noteType, setNoteType] = useState("NOTE");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  const [extractedCount, setExtractedCount] = useState<number | null>(null);
 
   useEffect(() => {
     fetch(`/api/groups/${groupId}/meetings/${meetingId}/notes`)
@@ -50,6 +54,40 @@ export default function MeetingDetailPage() {
     setSaving(false);
   }
 
+  // 음성 녹음 → dot 추출
+  async function handleTranscript(text: string, duration: number) {
+    setExtracting(true);
+    setExtractedCount(null);
+
+    // 1. 녹음 저장
+    await fetch(`/api/groups/${groupId}/voice`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ transcript: text, duration, meetingId }),
+    });
+
+    // 2. dot 추출
+    const res = await fetch(`/api/groups/${groupId}/dots/extract`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, source: "VOICE", meetingId }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      setExtractedCount(data.count);
+    }
+
+    // 3. 전체 텍스트도 노트로 저장
+    await fetch(`/api/groups/${groupId}/meetings/${meetingId}/notes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: text, type: "NOTE" }),
+    });
+
+    setExtracting(false);
+  }
+
   const typeLabel: Record<string, string> = {
     NOTE: "메모",
     QUOTE: "인용",
@@ -66,13 +104,52 @@ export default function MeetingDetailPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">모임 기록</h1>
-      <p className="text-gray-500 mb-8">
+      <Link
+        href={`/groups/${groupId}`}
+        className="text-sm text-gray-400 hover:text-gray-600 transition"
+      >
+        &larr; 그룹으로 돌아가기
+      </Link>
+      <h1 className="text-2xl font-bold text-gray-900 mb-2 mt-2">모임 기록</h1>
+      <p className="text-gray-500 mb-6">
         모임 중 나온 대화, 인사이트, 실행 항목을 기록하세요.
       </p>
 
+      {/* 음성 녹음 섹션 */}
+      <div className="mb-6">
+        <h2 className="text-sm font-semibold text-gray-900 mb-3">
+          음성으로 기록하기
+        </h2>
+        <VoiceRecorder onTranscript={handleTranscript} disabled={extracting} />
+        {extracting && (
+          <div className="mt-3 flex items-center gap-2 text-sm text-amber-700">
+            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            대화에서 인사이트를 추출하고 있습니다...
+          </div>
+        )}
+        {extractedCount !== null && (
+          <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3 flex items-center justify-between">
+            <p className="text-sm text-green-800">
+              {extractedCount}개의 dot이 추출되었습니다!
+            </p>
+            <Link
+              href={`/groups/${groupId}/dots`}
+              className="text-sm text-green-700 font-medium hover:underline"
+            >
+              Dot Board에서 보기 &rarr;
+            </Link>
+          </div>
+        )}
+      </div>
+
       {/* Add Note Form */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-8">
+        <h2 className="text-sm font-semibold text-gray-900 mb-3">
+          직접 기록하기
+        </h2>
         <form onSubmit={addNote} className="space-y-4">
           <div className="flex gap-2 flex-wrap">
             {Object.entries(typeLabel).map(([value, label]) => (
