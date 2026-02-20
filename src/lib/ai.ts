@@ -204,7 +204,8 @@ export async function transcribeAudio(
   if (!client) return null;
 
   try {
-    const file = new File([audioBuffer], filename, { type: "audio/webm" });
+    const uint8 = new Uint8Array(audioBuffer);
+    const file = new File([uint8], filename, { type: "audio/webm" });
     const transcription = await client.audio.transcriptions.create({
       model: "whisper-1",
       file: file,
