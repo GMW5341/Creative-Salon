@@ -45,9 +45,10 @@ export async function POST(req: NextRequest) {
       { id: user.id, name: user.name, email: user.email },
       { status: 201 }
     );
-  } catch {
+  } catch (error) {
+    console.error("회원가입 오류:", error);
     return NextResponse.json(
-      { error: "회원가입 중 오류가 발생했습니다." },
+      { error: "회원가입 중 오류가 발생했습니다.", details: error instanceof Error ? error.message : "알 수 없는 오류" },
       { status: 500 }
     );
   }
