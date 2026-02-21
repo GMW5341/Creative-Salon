@@ -71,18 +71,21 @@ export default function VoiceRecorder({
     recognition.continuous = true;
     recognition.interimResults = true;
 
+    let lastProcessedIndex = 0;
+
     recognition.onresult = (event: any) => {
-      let finalText = "";
+      let newFinalText = "";
       let interimText = "";
-      for (let i = 0; i < event.results.length; i++) {
+      for (let i = lastProcessedIndex; i < event.results.length; i++) {
         const result = event.results[i];
         if (result.isFinal) {
-          finalText += result[0].transcript + " ";
+          newFinalText += result[0].transcript + " ";
+          lastProcessedIndex = i + 1;
         } else {
           interimText += result[0].transcript;
         }
       }
-      if (finalText) setTranscript((prev) => prev + finalText);
+      if (newFinalText) setTranscript((prev) => prev + newFinalText);
       setInterim(interimText);
     };
 

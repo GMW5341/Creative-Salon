@@ -1,17 +1,16 @@
-import Anthropic from "@anthropic-ai/sdk";
-import OpenAI from "openai";
-
-// Claude API 클라이언트
-export function getAnthropicClient() {
+// Claude API 클라이언트 (lazy import로 dev 모드 모듈 resolve 문제 방지)
+async function getAnthropicClient() {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
+  const { default: Anthropic } = await import("@anthropic-ai/sdk");
   return new Anthropic({ apiKey });
 }
 
 // OpenAI 클라이언트 (Whisper STT용)
-export function getOpenAIClient() {
+async function getOpenAIClient() {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
+  const { default: OpenAI } = await import("openai");
   return new OpenAI({ apiKey });
 }
 
@@ -19,7 +18,7 @@ export function getOpenAIClient() {
 export async function extractDotsWithAI(
   text: string
 ): Promise<Array<{ content: string; summary: string; tags: string[] }>> {
-  const client = getAnthropicClient();
+  const client = await getAnthropicClient();
 
   if (client) {
     return await extractWithClaude(client, text);
@@ -30,7 +29,8 @@ export async function extractDotsWithAI(
 }
 
 async function extractWithClaude(
-  client: Anthropic,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  client: any,
   text: string
 ): Promise<Array<{ content: string; summary: string; tags: string[] }>> {
   const response = await client.messages.create({
@@ -68,7 +68,6 @@ ${text}
   try {
     const content = response.content[0];
     if (content.type === "text") {
-      // JSON 부분만 추출 (마크다운 코드블록 안에 있을 수 있음)
       let jsonStr = content.text.trim();
       const jsonMatch = jsonStr.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
@@ -148,7 +147,7 @@ export async function findNearbyWithAI(
   targetDot: { content: string; summary: string },
   candidates: Array<{ id: string; content: string; summary: string }>
 ): Promise<Array<{ id: string; relevance: string }>> {
-  const client = getAnthropicClient();
+  const client = await getAnthropicClient();
   if (!client || candidates.length === 0) return [];
 
   try {
@@ -200,7 +199,7 @@ export async function transcribeAudio(
   audioBuffer: Buffer,
   filename: string
 ): Promise<string | null> {
-  const client = getOpenAIClient();
+  const client = await getOpenAIClient();
   if (!client) return null;
 
   try {
