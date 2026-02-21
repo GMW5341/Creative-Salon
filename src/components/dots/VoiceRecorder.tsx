@@ -4,6 +4,13 @@ import { useState, useRef } from "react";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+interface Utterance {
+  speaker: string;
+  text: string;
+  start: number;
+  end: number;
+}
+
 interface VoiceRecorderProps {
   groupId: string;
   meetingId?: string;
@@ -12,6 +19,18 @@ interface VoiceRecorderProps {
 }
 
 type RecordMode = "browser" | "upload";
+
+const SPEAKER_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  "화자 1": { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
+  "화자 2": { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
+  "화자 3": { bg: "bg-violet-50", text: "text-violet-700", border: "border-violet-200" },
+  "화자 4": { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200" },
+  "화자 5": { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200" },
+};
+
+function getSpeakerStyle(speaker: string) {
+  return SPEAKER_COLORS[speaker] || { bg: "bg-gray-50", text: "text-gray-700", border: "border-gray-200" };
+}
 
 export default function VoiceRecorder({
   groupId,
@@ -38,9 +57,12 @@ export default function VoiceRecorder({
   const mediaTimerRef = useRef<NodeJS.Timeout | null>(null);
   const mediaStartRef = useRef<number>(0);
 
-  // ─── 파일 업로드 상태 ───
+  // ─── 업로드 / 화자 분리 상태 ───
   const [uploading, setUploading] = useState(false);
   const [uploadTranscript, setUploadTranscript] = useState("");
+  const [utterances, setUtterances] = useState<Utterance[]>([]);
+  const [speakerCount, setSpeakerCount] = useState(0);
+  const [transcribeMethod, setTranscribeMethod] = useState<string>("");
 
   const isBrowserSTTSupported =
     typeof window !== "undefined" &&
@@ -112,7 +134,7 @@ export default function VoiceRecorder({
   }
 
   // ════════════════════════════════════
-  // 방법 2: 마이크 녹음 → Whisper API
+  // 방법 2: 마이크 녹음 → AssemblyAI/Whisper
   // ════════════════════════════════════
 
   async function startMediaRecording() {
@@ -128,7 +150,7 @@ export default function VoiceRecorder({
       recorder.onstop = async () => {
         stream.getTracks().forEach((track) => track.stop());
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        await sendToWhisper(blob);
+        await sendToServer(blob);
       };
 
       mediaRecorderRef.current = recorder;
@@ -152,7 +174,7 @@ export default function VoiceRecorder({
     setIsMediaRecording(false);
   }
 
-  async function sendToWhisper(blob: Blob) {
+  async function sendToServer(blob: Blob) {
     setUploading(true);
     const formData = new FormData();
     formData.append("audio", blob, "recording.webm");
@@ -167,10 +189,13 @@ export default function VoiceRecorder({
       if (res.ok) {
         const data = await res.json();
         setUploadTranscript(data.transcript);
+        setUtterances(data.utterances || []);
+        setSpeakerCount(data.speakerCount || 0);
+        setTranscribeMethod(data.method || "");
       } else {
         const err = await res.json();
         if (err.fallbackToLocal) {
-          alert("Whisper API 키가 설정되지 않았습니다. 브라우저 음성 인식을 사용해주세요.");
+          alert("API 키가 설정되지 않았습니다. 브라우저 음성 인식을 사용해주세요.");
           setMode("browser");
         } else {
           alert(err.error || "음성 변환에 실패했습니다.");
@@ -201,6 +226,9 @@ export default function VoiceRecorder({
       if (res.ok) {
         const data = await res.json();
         setUploadTranscript(data.transcript);
+        setUtterances(data.utterances || []);
+        setSpeakerCount(data.speakerCount || 0);
+        setTranscribeMethod(data.method || "");
       } else {
         const err = await res.json();
         alert(err.error || "음성 변환에 실패했습니다.");
@@ -219,8 +247,26 @@ export default function VoiceRecorder({
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
+  const formatMs = (ms: number) => {
+    const totalSec = Math.floor(ms / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
+
+  function clearAll() {
+    setTranscript("");
+    setUploadTranscript("");
+    setUtterances([]);
+    setSpeakerCount(0);
+    setTranscribeMethod("");
+    setDuration(0);
+    setMediaDuration(0);
+  }
+
   const currentTranscript = mode === "browser" ? transcript : uploadTranscript;
   const isActive = isRecording || isMediaRecording || uploading;
+  const hasDiarization = utterances.length > 0 && speakerCount > 1;
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
@@ -304,7 +350,7 @@ export default function VoiceRecorder({
         </>
       )}
 
-      {/* ─── 녹음 + Whisper API ─── */}
+      {/* ─── 녹음 + AssemblyAI/Whisper ─── */}
       {mode === "upload" && (
         <>
           <div className="flex items-center gap-4">
@@ -333,7 +379,7 @@ export default function VoiceRecorder({
                   {isMediaRecording
                     ? "녹음 중..."
                     : uploading
-                    ? "Whisper API로 변환 중..."
+                    ? "AI가 변환 중..."
                     : "녹음하여 AI가 변환"}
                 </span>
                 {isMediaRecording && (
@@ -349,7 +395,7 @@ export default function VoiceRecorder({
                   </svg>
                 )}
               </div>
-              <p className="text-xs text-gray-400">녹음 후 OpenAI Whisper가 고품질 한국어 변환을 수행합니다</p>
+              <p className="text-xs text-gray-400">녹음 후 AI가 화자를 분리하여 대화체로 변환합니다</p>
             </div>
           </div>
 
@@ -377,7 +423,33 @@ export default function VoiceRecorder({
             </label>
           </div>
 
-          {uploadTranscript && (
+          {/* 화자 분리 결과 표시 */}
+          {uploadTranscript && hasDiarization && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <span className="font-medium">{speakerCount}명 감지</span>
+                <span className="text-gray-300">|</span>
+                <span>{transcribeMethod === "assemblyai" ? "AssemblyAI" : "Whisper"}</span>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-4 max-h-64 overflow-y-auto space-y-2">
+                {utterances.map((u, i) => {
+                  const style = getSpeakerStyle(u.speaker);
+                  return (
+                    <div key={i} className={`${style.bg} border ${style.border} rounded-lg px-3 py-2`}>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className={`text-xs font-semibold ${style.text}`}>{u.speaker}</span>
+                        <span className="text-[10px] text-gray-400">{formatMs(u.start)}</span>
+                      </div>
+                      <p className="text-sm text-gray-800">{u.text}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 화자 분리 없는 일반 결과 */}
+          {uploadTranscript && !hasDiarization && (
             <div className="bg-gray-50 rounded-xl p-4 max-h-48 overflow-y-auto">
               <p className="text-sm text-gray-800 whitespace-pre-wrap">{uploadTranscript}</p>
             </div>
@@ -391,22 +463,14 @@ export default function VoiceRecorder({
           <button
             onClick={() => {
               onTranscriptReady(currentTranscript.trim(), mode === "browser" ? duration : mediaDuration);
-              setTranscript("");
-              setUploadTranscript("");
-              setDuration(0);
-              setMediaDuration(0);
+              clearAll();
             }}
             className="bg-amber-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-amber-700 transition flex-1"
           >
             이 대화에서 dot 추출하기
           </button>
           <button
-            onClick={() => {
-              setTranscript("");
-              setUploadTranscript("");
-              setDuration(0);
-              setMediaDuration(0);
-            }}
+            onClick={clearAll}
             className="border border-gray-300 text-gray-600 px-4 py-2.5 rounded-lg text-sm hover:bg-gray-50 transition"
           >
             삭제

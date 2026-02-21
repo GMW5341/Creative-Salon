@@ -194,7 +194,83 @@ ${candidateList}
   return [];
 }
 
-// ─── Whisper API로 음성 → 텍스트 변환 ───
+// ─── AssemblyAI 화자 분리 + STT ───
+export interface DiarizedUtterance {
+  speaker: string;
+  text: string;
+  start: number;
+  end: number;
+}
+
+export interface TranscribeResult {
+  transcript: string;
+  utterances: DiarizedUtterance[];
+  speakerCount: number;
+}
+
+export async function transcribeWithDiarization(
+  audioBuffer: Buffer
+): Promise<TranscribeResult | null> {
+  const apiKey = process.env.ASSEMBLYAI_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const { AssemblyAI } = await import("assemblyai");
+    const client = new AssemblyAI({ apiKey });
+
+    // 1. 오디오 업로드
+    const uint8 = new Uint8Array(audioBuffer);
+    const uploadUrl = await client.files.upload(uint8);
+
+    // 2. 화자 분리 옵션으로 트랜스크립션 요청
+    const transcriptResponse = await client.transcripts.transcribe({
+      audio_url: uploadUrl,
+      language_code: "ko",
+      speaker_labels: true,
+    });
+
+    if (transcriptResponse.status === "error") {
+      console.error("AssemblyAI 오류:", transcriptResponse.error);
+      return null;
+    }
+
+    // 3. 화자별 발화를 대화 형태로 구성
+    const utterances: DiarizedUtterance[] = (transcriptResponse.utterances || []).map(
+      (u) => ({
+        speaker: u.speaker,
+        text: u.text,
+        start: u.start,
+        end: u.end,
+      })
+    );
+
+    // 화자 라벨 → 읽기 좋은 이름 매핑 (Speaker A → 화자 1)
+    const speakerSet = Array.from(new Set(utterances.map((u) => u.speaker)));
+    const speakerMap = new Map<string, string>();
+    speakerSet.forEach((s, i) => {
+      speakerMap.set(s, `화자 ${i + 1}`);
+    });
+
+    // 대화체 트랜스크립트 구성
+    const dialogueLines = utterances.map(
+      (u) => `${speakerMap.get(u.speaker)}: ${u.text}`
+    );
+
+    return {
+      transcript: dialogueLines.join("\n"),
+      utterances: utterances.map((u) => ({
+        ...u,
+        speaker: speakerMap.get(u.speaker) || u.speaker,
+      })),
+      speakerCount: speakerSet.length,
+    };
+  } catch (e) {
+    console.error("AssemblyAI 변환 실패:", e);
+    return null;
+  }
+}
+
+// ─── Whisper API로 음성 → 텍스트 변환 (화자 분리 없음, 폴백) ───
 export async function transcribeAudio(
   audioBuffer: Buffer,
   filename: string
