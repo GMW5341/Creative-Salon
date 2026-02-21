@@ -24,21 +24,26 @@ export default function RegisterPage() {
 
     setLoading(true);
 
-    const res = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password }),
-    });
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (!res.ok) {
-      setError(data.error);
+      if (!res.ok) {
+        setError(data.details ? `${data.error} (${data.details})` : data.error);
+        setLoading(false);
+        return;
+      }
+
+      router.push("/login?registered=true");
+    } catch {
+      setError("서버에 연결할 수 없습니다. 네트워크 상태를 확인해주세요.");
       setLoading(false);
-      return;
     }
-
-    router.push("/login?registered=true");
   }
 
   return (
