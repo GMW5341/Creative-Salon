@@ -467,7 +467,7 @@ export default function VoiceRecorder({
             }}
             className="bg-amber-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-amber-700 transition flex-1"
           >
-            이 대화에서 dot 추출하기
+            이 대화에서 Synap 추출하기
           </button>
           <button
             onClick={clearAll}

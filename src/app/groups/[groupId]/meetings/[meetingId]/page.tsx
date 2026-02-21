@@ -3,7 +3,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import VoiceRecorder from "@/components/dots/VoiceRecorder";
+import VoiceRecorder from "@/components/synaps/VoiceRecorder";
 
 interface Note {
   id: string;
@@ -54,7 +54,7 @@ export default function MeetingDetailPage() {
     setSaving(false);
   }
 
-  // 음성 녹음 → dot 추출
+  // 음성 녹음 → synap 추출
   async function handleTranscript(text: string, duration: number) {
     setExtracting(true);
     setExtractedCount(null);
@@ -66,8 +66,8 @@ export default function MeetingDetailPage() {
       body: JSON.stringify({ transcript: text, duration, meetingId }),
     });
 
-    // 2. dot 추출
-    const res = await fetch(`/api/groups/${groupId}/dots/extract`, {
+    // 2. synap 추출
+    const res = await fetch(`/api/groups/${groupId}/synaps/extract`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text, source: "VOICE", meetingId }),
@@ -133,13 +133,13 @@ export default function MeetingDetailPage() {
         {extractedCount !== null && (
           <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3 flex items-center justify-between">
             <p className="text-sm text-green-800">
-              {extractedCount}개의 dot이 추출되었습니다!
+              {extractedCount}개의 Synap이 추출되었습니다!
             </p>
             <Link
-              href={`/groups/${groupId}/dots`}
+              href={`/groups/${groupId}/synaps`}
               className="text-sm text-green-700 font-medium hover:underline"
             >
-              Dot Board에서 보기 &rarr;
+              Synap Board에서 보기 &rarr;
             </Link>
           </div>
         )}

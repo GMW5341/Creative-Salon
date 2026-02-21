@@ -15,7 +15,7 @@ async function getOpenAIClient() {
 }
 
 // ─── AI로 대화 텍스트에서 인사이트 추출 ───
-export async function extractDotsWithAI(
+export async function extractSynapsWithAI(
   text: string
 ): Promise<Array<{ content: string; summary: string; tags: string[] }>> {
   const client = await getAnthropicClient();
@@ -39,12 +39,12 @@ async function extractWithClaude(
     messages: [
       {
         role: "user",
-        content: `다음은 모임에서 나온 대화 또는 텍스트입니다. 여기서 유의미한 인사이트 조각(dot)을 추출해주세요.
+        content: `다음은 모임에서 나온 대화 또는 텍스트입니다. 여기서 유의미한 인사이트 조각(Synap)을 추출해주세요.
 
 규칙:
-1. 각 dot은 독립적인 하나의 생각/관찰/통찰이어야 합니다
+1. 각 Synap은 독립적인 하나의 생각/관찰/통찰이어야 합니다
 2. 결론을 내리지 마세요. 사고의 재료가 될 수 있는 날것의 조각만 추출하세요
-3. "~인 것 같다", "~가 아닐까" 같은 탐색적 사고도 소중한 dot입니다
+3. "~인 것 같다", "~가 아닐까" 같은 탐색적 사고도 소중한 Synap입니다
 4. 최소 1개, 최대 8개까지 추출하세요
 5. 너무 일상적인 대화(인사, 잡담)는 제외하세요
 
@@ -73,8 +73,8 @@ ${text}
       if (jsonMatch) {
         jsonStr = jsonMatch[0];
       }
-      const dots = JSON.parse(jsonStr);
-      return Array.isArray(dots) ? dots : [];
+      const synaps = JSON.parse(jsonStr);
+      return Array.isArray(synaps) ? synaps : [];
     }
   } catch (e) {
     console.error("Claude 응답 파싱 실패:", e);
@@ -142,9 +142,9 @@ function extractTags(text: string): string[] {
   return tags.length > 0 ? tags.slice(0, 4) : ["일반"];
 }
 
-// ─── AI로 두 dot 사이 유사성 분석 (nearby 보조) ───
+// ─── AI로 두 synap 사이 유사성 분석 (nearby 보조) ───
 export async function findNearbyWithAI(
-  targetDot: { content: string; summary: string },
+  targetSynap: { content: string; summary: string },
   candidates: Array<{ id: string; content: string; summary: string }>
 ): Promise<Array<{ id: string; relevance: string }>> {
   const client = await getAnthropicClient();
@@ -162,7 +162,7 @@ export async function findNearbyWithAI(
       messages: [
         {
           role: "user",
-          content: `기준 인사이트: "${targetDot.summary}" — ${targetDot.content}
+          content: `기준 인사이트: "${targetSynap.summary}" — ${targetSynap.content}
 
 아래 후보 인사이트들 중에서 기준과 표면적으로는 달라 보이더라도 구조적으로 연결될 수 있는 것들을 골라주세요.
 단순한 키워드 매칭이 아니라, 깊은 수준의 유사성(유추)을 찾아주세요.

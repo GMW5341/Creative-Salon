@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-interface Dot {
+interface Synap {
   id: string;
   summary: string;
   tags: string | null;
@@ -10,15 +10,15 @@ interface Dot {
 }
 
 interface ConnectionModalProps {
-  fromDot: Dot;
-  toDot: Dot;
+  fromSynap: Synap;
+  toSynap: Synap;
   onSubmit: (insight: string) => void;
   onClose: () => void;
 }
 
 export default function ConnectionModal({
-  fromDot,
-  toDot,
+  fromSynap,
+  toSynap,
   onSubmit,
   onClose,
 }: ConnectionModalProps) {
@@ -38,11 +38,11 @@ export default function ConnectionModal({
           연결을 발견하셨나요?
         </h3>
 
-        {/* 두 dot 표시 */}
+        {/* 두 synap 표시 */}
         <div className="space-y-3 mb-6">
           <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
-            <p className="text-xs text-amber-600 mb-1">Dot A</p>
-            <p className="text-sm font-medium text-gray-900">{fromDot.summary}</p>
+            <p className="text-xs text-amber-600 mb-1">Synap A</p>
+            <p className="text-sm font-medium text-gray-900">{fromSynap.summary}</p>
           </div>
 
           <div className="flex justify-center">
@@ -52,8 +52,8 @@ export default function ConnectionModal({
           </div>
 
           <div className="bg-violet-50 rounded-lg p-3 border border-violet-200">
-            <p className="text-xs text-violet-600 mb-1">Dot B</p>
-            <p className="text-sm font-medium text-gray-900">{toDot.summary}</p>
+            <p className="text-xs text-violet-600 mb-1">Synap B</p>
+            <p className="text-sm font-medium text-gray-900">{toSynap.summary}</p>
           </div>
         </div>
 

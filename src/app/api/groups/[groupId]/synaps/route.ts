@@ -3,14 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-// GET: 그룹의 모든 dot 조회
+// GET: 그룹의 모든 synap 조회
 export async function GET(
   request: NextRequest,
   { params }: { params: { groupId: string } }
 ) {
   const { groupId } = params;
 
-  const dots = await prisma.dot.findMany({
+  const synaps = await prisma.synap.findMany({
     where: { groupId },
     include: {
       author: { select: { id: true, name: true, profileImage: true } },
@@ -18,13 +18,13 @@ export async function GET(
       discussion: { select: { id: true, title: true } },
       connectionsFrom: {
         include: {
-          toDot: { select: { id: true, summary: true, tags: true } },
+          toSynap: { select: { id: true, summary: true, tags: true } },
           author: { select: { name: true } },
         },
       },
       connectionsTo: {
         include: {
-          fromDot: { select: { id: true, summary: true, tags: true } },
+          fromSynap: { select: { id: true, summary: true, tags: true } },
           author: { select: { name: true } },
         },
       },
@@ -32,10 +32,10 @@ export async function GET(
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json(dots);
+  return NextResponse.json(synaps);
 }
 
-// POST: 새 dot 수동 생성
+// POST: 새 synap 수동 생성
 export async function POST(
   request: NextRequest,
   { params }: { params: { groupId: string } }
@@ -56,7 +56,7 @@ export async function POST(
     );
   }
 
-  const dot = await prisma.dot.create({
+  const synap = await prisma.synap.create({
     data: {
       content,
       summary,
@@ -72,5 +72,5 @@ export async function POST(
     },
   });
 
-  return NextResponse.json(dot, { status: 201 });
+  return NextResponse.json(synap, { status: 201 });
 }

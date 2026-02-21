@@ -10,15 +10,15 @@ export async function GET(
 ) {
   const { groupId } = params;
 
-  const connections = await prisma.dotConnection.findMany({
+  const connections = await prisma.synapConnection.findMany({
     where: {
-      fromDot: { groupId },
+      fromSynap: { groupId },
     },
     include: {
-      fromDot: {
+      fromSynap: {
         select: { id: true, summary: true, tags: true, content: true, createdAt: true },
       },
-      toDot: {
+      toSynap: {
         select: { id: true, summary: true, tags: true, content: true, createdAt: true },
       },
       author: { select: { id: true, name: true } },
@@ -29,7 +29,7 @@ export async function GET(
   return NextResponse.json(connections);
 }
 
-// POST: 새로운 연결(유추) 생성 — 사용자가 직접 dot을 연결
+// POST: 새로운 연결(유추) 생성 — 사용자가 직접 synap을 연결
 export async function POST(
   request: NextRequest,
   _context: { params: { groupId: string } }
@@ -41,32 +41,32 @@ export async function POST(
 
   void _context;
   const body = await request.json();
-  const { fromDotId, toDotId, insight } = body;
+  const { fromSynapId, toSynapId, insight } = body;
 
-  if (!fromDotId || !toDotId || !insight) {
+  if (!fromSynapId || !toSynapId || !insight) {
     return NextResponse.json(
-      { error: "두 개의 dot과 발견한 연결 설명이 필요합니다." },
+      { error: "두 개의 Synap과 발견한 연결 설명이 필요합니다." },
       { status: 400 }
     );
   }
 
-  if (fromDotId === toDotId) {
+  if (fromSynapId === toSynapId) {
     return NextResponse.json(
-      { error: "서로 다른 dot을 선택해주세요." },
+      { error: "서로 다른 Synap을 선택해주세요." },
       { status: 400 }
     );
   }
 
-  const connection = await prisma.dotConnection.create({
+  const connection = await prisma.synapConnection.create({
     data: {
-      fromDotId,
-      toDotId,
+      fromSynapId,
+      toSynapId,
       insight,
       authorId: (session.user as { id: string }).id,
     },
     include: {
-      fromDot: { select: { id: true, summary: true, tags: true } },
-      toDot: { select: { id: true, summary: true, tags: true } },
+      fromSynap: { select: { id: true, summary: true, tags: true } },
+      toSynap: { select: { id: true, summary: true, tags: true } },
       author: { select: { id: true, name: true } },
     },
   });

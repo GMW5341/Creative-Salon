@@ -27,8 +27,8 @@ model User {
   payments         Payment[]
   invitations      Invitation[]     @relation("InvitedBy")
   notifications    Notification[]
-  dots             Dot[]
-  dotConnections   DotConnection[]
+  synaps           Synap[]
+  synapConnections SynapConnection[]
   voiceRecordings  VoiceRecording[]
   subscriptions    Subscription[]
 }
@@ -55,7 +55,7 @@ model Group {
   payments        Payment[]
   invitations     Invitation[]
   fees            GroupFee[]
-  dots            Dot[]
+  synaps          Synap[]
   voiceRecordings VoiceRecording[]
   subscriptions   Subscription[]
 }
@@ -117,7 +117,7 @@ model Meeting {
   notes           MeetingNote[]
   discussions     Discussion[]
   attendances     Attendance[]
-  dots            Dot[]
+  synaps          Synap[]
   voiceRecordings VoiceRecording[]
 }
 
@@ -166,7 +166,7 @@ model Discussion {
   meeting   Meeting? @relation(fields: [meetingId], references: [id])
 
   comments  Comment[]
-  dots      Dot[]
+  synaps    Synap[]
 }
 
 // ─── 댓글 ───
@@ -253,8 +253,8 @@ model Invitation {
   inviter   User     @relation("InvitedBy", fields: [inviterId], references: [id])
 }
 
-// ─── Dot (대화에서 추출된 인사이트 조각) ───
-model Dot {
+// ─── Synap (대화에서 추출된 인사이트 조각) ───
+model Synap {
   id          String   @id @default(uuid())
   content     String   // 인사이트 원문
   summary     String   // AI가 압축한 한 줄 요약
@@ -274,20 +274,20 @@ model Dot {
   discussion  Discussion? @relation(fields: [discussionId], references: [id])
 
   // 연결 관계
-  connectionsFrom DotConnection[] @relation("FromDot")
-  connectionsTo   DotConnection[] @relation("ToDot")
+  connectionsFrom SynapConnection[] @relation("FromSynap")
+  connectionsTo   SynapConnection[] @relation("ToSynap")
 }
 
-// ─── DotConnection (사용자가 만든 유추/연결) ───
-model DotConnection {
+// ─── SynapConnection (사용자가 만든 유추/연결) ───
+model SynapConnection {
   id          String   @id @default(uuid())
   insight     String   // 사용자가 발견한 연결 설명: "둘 다 언어를 통한 변환을 말하고 있다"
   createdAt   DateTime @default(now())
 
-  fromDotId   String
-  fromDot     Dot      @relation("FromDot", fields: [fromDotId], references: [id], onDelete: Cascade)
-  toDotId     String
-  toDot       Dot      @relation("ToDot", fields: [toDotId], references: [id], onDelete: Cascade)
+  fromSynapId String
+  fromSynap   Synap    @relation("FromSynap", fields: [fromSynapId], references: [id], onDelete: Cascade)
+  toSynapId   String
+  toSynap     Synap    @relation("ToSynap", fields: [toSynapId], references: [id], onDelete: Cascade)
   authorId    String
   author      User     @relation(fields: [authorId], references: [id])
 }
@@ -298,7 +298,7 @@ model VoiceRecording {
   transcript    String?  // STT 변환된 텍스트
   duration      Int?     // 녹음 길이(초)
   status        String   @default("PENDING") // PENDING, TRANSCRIBED, PROCESSED
-  dotsExtracted Int      @default(0) // 추출된 dot 수
+  synapsExtracted Int    @default(0) // 추출된 synap 수
   createdAt     DateTime @default(now())
 
   authorId      String

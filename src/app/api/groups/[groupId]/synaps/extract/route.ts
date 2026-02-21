@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { extractDotsWithAI } from "@/lib/ai";
+import { extractSynapsWithAI } from "@/lib/ai";
 
-// POST: 텍스트에서 dot 자동 추출 (Claude API 연동)
+// POST: 텍스트에서 synap 자동 추출 (Claude API 연동)
 export async function POST(
   request: NextRequest,
   { params }: { params: { groupId: string } }
@@ -26,23 +26,23 @@ export async function POST(
   }
 
   // AI로 인사이트 추출 (API 키 없으면 로컬 폴백)
-  const extractedDots = await extractDotsWithAI(text);
+  const extractedSynaps = await extractSynapsWithAI(text);
 
-  if (extractedDots.length === 0) {
+  if (extractedSynaps.length === 0) {
     return NextResponse.json({
-      dots: [],
+      synaps: [],
       count: 0,
       message: "추출할 인사이트를 찾지 못했습니다. 더 긴 대화를 입력해보세요.",
     });
   }
 
-  const createdDots = await Promise.all(
-    extractedDots.map((dot) =>
-      prisma.dot.create({
+  const createdSynaps = await Promise.all(
+    extractedSynaps.map((synap) =>
+      prisma.synap.create({
         data: {
-          content: dot.content,
-          summary: dot.summary,
-          tags: JSON.stringify(dot.tags),
+          content: synap.content,
+          summary: synap.summary,
+          tags: JSON.stringify(synap.tags),
           source: source || "VOICE",
           authorId: (session.user as { id: string }).id,
           groupId,
@@ -55,17 +55,17 @@ export async function POST(
     )
   );
 
-  // 음성 녹음이었다면 dotsExtracted 업데이트
+  // 음성 녹음이었다면 synapsExtracted 업데이트
   if (meetingId) {
     await prisma.voiceRecording.updateMany({
       where: { meetingId, authorId: (session.user as { id: string }).id },
-      data: { dotsExtracted: createdDots.length, status: "PROCESSED" },
+      data: { synapsExtracted: createdSynaps.length, status: "PROCESSED" },
     });
   }
 
   return NextResponse.json({
-    dots: createdDots,
-    count: createdDots.length,
-    message: `${createdDots.length}개의 인사이트가 추출되었습니다.`,
+    synaps: createdSynaps,
+    count: createdSynaps.length,
+    message: `${createdSynaps.length}개의 인사이트가 추출되었습니다.`,
   });
 }

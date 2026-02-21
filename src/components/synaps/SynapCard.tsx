@@ -1,7 +1,7 @@
 "use client";
 
-interface DotCardProps {
-  dot: {
+interface SynapCardProps {
+  synap: {
     id: string;
     content: string;
     summary: string;
@@ -12,12 +12,12 @@ interface DotCardProps {
     meeting?: { title: string; date: string } | null;
   };
   isSelected?: boolean;
-  onSelect?: (dotId: string) => void;
+  onSelect?: (synapId: string) => void;
   compact?: boolean;
 }
 
-export default function DotCard({ dot, isSelected, onSelect, compact }: DotCardProps) {
-  const tags: string[] = dot.tags ? JSON.parse(dot.tags) : [];
+export default function SynapCard({ synap, isSelected, onSelect, compact }: SynapCardProps) {
+  const tags: string[] = synap.tags ? JSON.parse(synap.tags) : [];
 
   const sourceLabel: Record<string, string> = {
     MANUAL: "직접 작성",
@@ -35,7 +35,7 @@ export default function DotCard({ dot, isSelected, onSelect, compact }: DotCardP
 
   return (
     <div
-      onClick={() => onSelect?.(dot.id)}
+      onClick={() => onSelect?.(synap.id)}
       className={`rounded-xl border p-4 transition cursor-pointer ${
         isSelected
           ? "border-amber-500 bg-amber-50 shadow-md ring-2 ring-amber-200"
@@ -46,32 +46,32 @@ export default function DotCard({ dot, isSelected, onSelect, compact }: DotCardP
       <div className="flex items-center gap-2 mb-2">
         <span
           className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-            sourceColor[dot.source] || sourceColor.MANUAL
+            sourceColor[synap.source] || sourceColor.MANUAL
           }`}
         >
-          {sourceLabel[dot.source] || dot.source}
+          {sourceLabel[synap.source] || synap.source}
         </span>
         <span className="text-[10px] text-gray-400">
-          {new Date(dot.createdAt).toLocaleDateString("ko-KR", {
+          {new Date(synap.createdAt).toLocaleDateString("ko-KR", {
             month: "short",
             day: "numeric",
           })}
         </span>
-        {dot.meeting && (
+        {synap.meeting && (
           <span className="text-[10px] text-gray-400 truncate">
-            {dot.meeting.title}
+            {synap.meeting.title}
           </span>
         )}
       </div>
 
       {/* 요약 */}
       <p className={`font-medium text-gray-900 ${compact ? "text-sm" : ""}`}>
-        {dot.summary}
+        {synap.summary}
       </p>
 
       {/* 원문 (compact 모드에서는 숨김) */}
-      {!compact && dot.content !== dot.summary && (
-        <p className="text-sm text-gray-500 mt-1.5 line-clamp-2">{dot.content}</p>
+      {!compact && synap.content !== synap.summary && (
+        <p className="text-sm text-gray-500 mt-1.5 line-clamp-2">{synap.content}</p>
       )}
 
       {/* 태그 */}
@@ -89,7 +89,7 @@ export default function DotCard({ dot, isSelected, onSelect, compact }: DotCardP
       )}
 
       {/* 작성자 */}
-      <p className="text-[10px] text-gray-400 mt-2">{dot.author.name}</p>
+      <p className="text-[10px] text-gray-400 mt-2">{synap.author.name}</p>
     </div>
   );
 }
