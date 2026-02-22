@@ -27,6 +27,9 @@ export default function MembersPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [inviting, setInviting] = useState(false);
+  const [generatingLink, setGeneratingLink] = useState(false);
+  const [inviteLink, setInviteLink] = useState("");
+  const [linkCopied, setLinkCopied] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -56,6 +59,33 @@ export default function MembersPage() {
       setMessage(data.error);
     }
     setInviting(false);
+  }
+
+  async function handleGenerateLink() {
+    setGeneratingLink(true);
+    setInviteLink("");
+    setLinkCopied(false);
+
+    const res = await fetch(`/api/groups/${groupId}/invite`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "link-invite@placeholder.local" }),
+    });
+
+    const data = await res.json();
+
+    if (res.ok && data.token) {
+      const baseUrl = window.location.origin;
+      const link = `${baseUrl}/invite/${data.token}`;
+      setInviteLink(link);
+    }
+    setGeneratingLink(false);
+  }
+
+  async function handleCopyLink() {
+    await navigator.clipboard.writeText(inviteLink);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
   }
 
   const roleLabel: Record<string, string> = {
@@ -103,6 +133,39 @@ export default function MembersPage() {
         {message && (
           <p className="mt-3 text-sm text-amber-700">{message}</p>
         )}
+
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <p className="text-sm text-gray-500 mb-3">또는 초대 링크를 직접 공유할 수도 있어요</p>
+          {!inviteLink ? (
+            <button
+              onClick={handleGenerateLink}
+              disabled={generatingLink}
+              className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:border-amber-400 hover:text-amber-700 hover:bg-amber-50 disabled:opacity-50 transition-all duration-200"
+            >
+              {generatingLink ? "생성 중..." : "초대 링크 생성"}
+            </button>
+          ) : (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                readOnly
+                value={inviteLink}
+                className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600 select-all"
+                onClick={(e) => (e.target as HTMLInputElement).select()}
+              />
+              <button
+                onClick={handleCopyLink}
+                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all duration-200 ${
+                  linkCopied
+                    ? "bg-green-100 text-green-700 border border-green-300"
+                    : "bg-amber-600 text-white hover:bg-amber-700"
+                }`}
+              >
+                {linkCopied ? "복사됨!" : "복사"}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Member List */}
