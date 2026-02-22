@@ -1,6 +1,4 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  serverExternalPackages: ["assemblyai"],
-};
+const nextConfig = {};
 
 export default nextConfig;

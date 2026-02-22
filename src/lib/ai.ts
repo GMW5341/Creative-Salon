@@ -206,28 +206,55 @@ export async function transcribeWithDiarization(
   const apiKey = process.env.ASSEMBLYAI_API_KEY;
   if (!apiKey) return null;
 
-  try {
-    const { AssemblyAI } = await import("assemblyai");
-    const client = new AssemblyAI({ apiKey });
+  const headers = { authorization: apiKey, "content-type": "application/json" };
 
+  try {
     // 1. 오디오 업로드
-    const uint8 = new Uint8Array(audioBuffer);
-    const uploadUrl = await client.files.upload(uint8);
+    const uploadRes = await fetch("https://api.assemblyai.com/v2/upload", {
+      method: "POST",
+      headers: { authorization: apiKey, "content-type": "application/octet-stream" },
+      body: new Uint8Array(audioBuffer),
+    });
+    if (!uploadRes.ok) {
+      console.error("AssemblyAI 업로드 실패:", uploadRes.status);
+      return null;
+    }
+    const { upload_url } = await uploadRes.json();
 
     // 2. 화자 분리 옵션으로 트랜스크립션 요청
-    const transcriptResponse = await client.transcripts.transcribe({
-      audio_url: uploadUrl,
-      language_code: "ko",
-      speaker_labels: true,
+    const transcriptRes = await fetch("https://api.assemblyai.com/v2/transcript", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        audio_url: upload_url,
+        language_code: "ko",
+        speaker_labels: true,
+      }),
     });
+    if (!transcriptRes.ok) {
+      console.error("AssemblyAI 트랜스크립션 요청 실패:", transcriptRes.status);
+      return null;
+    }
+    const { id: transcriptId } = await transcriptRes.json();
 
-    if (transcriptResponse.status === "error") {
-      console.error("AssemblyAI 오류:", transcriptResponse.error);
+    // 3. 폴링으로 완료 대기
+    let transcriptData: { status: string; error?: string; utterances?: Array<{ speaker: string; text: string; start: number; end: number }> };
+    while (true) {
+      await new Promise((r) => setTimeout(r, 3000));
+      const pollRes = await fetch(`https://api.assemblyai.com/v2/transcript/${transcriptId}`, {
+        headers,
+      });
+      transcriptData = await pollRes.json();
+      if (transcriptData.status === "completed" || transcriptData.status === "error") break;
+    }
+
+    if (transcriptData.status === "error") {
+      console.error("AssemblyAI 오류:", transcriptData.error);
       return null;
     }
 
-    // 3. 화자별 발화를 대화 형태로 구성
-    const utterances: DiarizedUtterance[] = (transcriptResponse.utterances || []).map(
+    // 4. 화자별 발화를 대화 형태로 구성
+    const utterances: DiarizedUtterance[] = (transcriptData.utterances || []).map(
       (u) => ({
         speaker: u.speaker,
         text: u.text,
@@ -236,14 +263,12 @@ export async function transcribeWithDiarization(
       })
     );
 
-    // 화자 라벨 → 읽기 좋은 이름 매핑 (Speaker A → 화자 1)
     const speakerSet = Array.from(new Set(utterances.map((u) => u.speaker)));
     const speakerMap = new Map<string, string>();
     speakerSet.forEach((s, i) => {
       speakerMap.set(s, `화자 ${i + 1}`);
     });
 
-    // 대화체 트랜스크립트 구성
     const dialogueLines = utterances.map(
       (u) => `${speakerMap.get(u.speaker)}: ${u.text}`
     );
