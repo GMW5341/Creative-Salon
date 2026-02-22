@@ -79,57 +79,114 @@ ${text}
 }
 
 // ─── AI 없이 로컬에서 인사이트 추출 (폴백) ───
+// 단순 문장 분리가 아닌, 주제 클러스터링 기반 맥락 추출
 function extractWithLocalLogic(
   text: string
 ): Array<{ content: string; summary: string; tags: string[] }> {
-  // 한국어 문장 분리: 마침표·물음표·느낌표·줄바꿈 + 한국어 종결어미 패턴
-  const sentences = text
-    .split(/[.!?\n。]+|(?<=다|요|죠|네|나|까|지|음|함)\s+/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 10);
+  // 1단계: 문장 분리 (한국어 + 일반)
+  const rawSentences = text
+    .split(/\n+/)
+    .flatMap((line) => {
+      // 화자 레이블 있으면 줄 단위로 유지
+      if (/^(화자\s*\d+|[A-Z]|.{1,5}):\s/.test(line)) return [line];
+      // 아니면 마침표/물음표 기준 분리
+      return line.split(/(?<=[다요죠네까지음함])\s*[.。]\s*|[!?]\s+/);
+    })
+    .map((s) => s.replace(/^(화자\s*\d+|[A-Z]|.{1,5}):\s*/, "").trim())
+    .filter((s) => s.length > 8);
 
+  if (rawSentences.length === 0 && text.trim().length >= 10) {
+    return [{
+      content: text.trim(),
+      summary: text.trim().length > 40 ? text.trim().slice(0, 40) + "..." : text.trim(),
+      tags: extractTags(text),
+    }];
+  }
+
+  // 2단계: 주제별 클러스터링 (키워드 유사도 기반)
+  const clusters: string[][] = [];
+
+  for (const sentence of rawSentences) {
+    const keywords = extractKeywords(sentence);
+    let merged = false;
+
+    for (const cluster of clusters) {
+      const clusterText = cluster.join(" ");
+      const clusterKeywords = extractKeywords(clusterText);
+      // 키워드가 하나라도 겹치면 같은 클러스터
+      const overlap = keywords.filter((k) => clusterKeywords.includes(k));
+      if (overlap.length > 0 || cluster.length < 2) {
+        cluster.push(sentence);
+        merged = true;
+        break;
+      }
+    }
+
+    if (!merged) {
+      clusters.push([sentence]);
+    }
+  }
+
+  // 3단계: 각 클러스터를 하나의 인사이트로 종합
   const insights: Array<{ content: string; summary: string; tags: string[] }> = [];
 
-  for (const sentence of sentences) {
-    if (sentence.length < 10) continue;
+  for (const cluster of clusters) {
+    const combined = cluster.join(" ");
+    if (combined.length < 10) continue;
 
-    // 점수 기반: 더 관대하게 인사이트 추출
-    let score = 0;
-    // 탐색적 사고 패턴 (높은 점수)
-    if (/것 같|아닐까|수도 있|모르겠|궁금/.test(sentence)) score += 3;
-    // 주장/통찰 패턴
-    if (/라고 생각|결국|왜냐하면|핵심|본질|중요한|의미/.test(sentence)) score += 3;
-    // 일반 서술 (낮은 점수지만 긴 문장이면 포함)
-    if (sentence.length > 20) score += 1;
-    if (sentence.length > 40) score += 1;
-    // 화자 발화 패턴 (대화 기록)
-    if (/^화자\s*\d|^[A-Z]:|^.{1,5}:/.test(sentence)) score += 1;
+    // 가장 핵심적인 문장을 요약으로 (가장 많은 키워드를 포함한 문장)
+    const ranked = [...cluster].sort((a, b) => {
+      const scoreA = getInsightScore(a);
+      const scoreB = getInsightScore(b);
+      return scoreB - scoreA;
+    });
+    const core = ranked[0];
+    const summary = core.length > 40 ? core.slice(0, 40) + "..." : core;
 
-    if (score >= 1) {
-      // 화자 레이블 제거
-      const cleaned = sentence.replace(/^(화자\s*\d+|[A-Z]|.{1,5}):\s*/, "");
-      if (cleaned.length < 8) continue;
+    insights.push({
+      content: combined.length > 300 ? combined.slice(0, 300) + "..." : combined,
+      summary,
+      tags: extractTags(combined),
+    });
+  }
 
-      const tags = extractTags(cleaned);
-      insights.push({
-        content: cleaned,
-        summary: cleaned.length > 40 ? cleaned.slice(0, 40) + "..." : cleaned,
-        tags,
-      });
-    }
+  // 인사이트가 너무 많으면 점수 높은 것만
+  if (insights.length > 8) {
+    return insights
+      .sort((a, b) => getInsightScore(b.content) - getInsightScore(a.content))
+      .slice(0, 8);
   }
 
   // 결과가 비면 전체 텍스트를 단일 인사이트로
   if (insights.length === 0 && text.trim().length >= 10) {
     const cleaned = text.trim();
     insights.push({
-      content: cleaned,
+      content: cleaned.length > 300 ? cleaned.slice(0, 300) + "..." : cleaned,
       summary: cleaned.length > 40 ? cleaned.slice(0, 40) + "..." : cleaned,
       tags: extractTags(cleaned),
     });
   }
 
-  return insights.slice(0, 8);
+  return insights;
+}
+
+// 문장의 인사이트 점수 (높을수록 핵심)
+function getInsightScore(sentence: string): number {
+  let score = 0;
+  if (/것 같|아닐까|수도 있|모르겠|궁금/.test(sentence)) score += 3;
+  if (/라고 생각|결국|왜냐하면|핵심|본질|중요한|의미/.test(sentence)) score += 3;
+  if (/해야|필요|방법|이유|문제/.test(sentence)) score += 2;
+  if (sentence.length > 30) score += 1;
+  if (sentence.length > 60) score += 1;
+  return score;
+}
+
+// 텍스트에서 핵심 키워드 추출 (명사 + 주요 표현)
+function extractKeywords(text: string): string[] {
+  const stopwords = new Set(["그리고", "하지만", "그래서", "또한", "그런데", "이것", "저것", "그것", "우리", "나는", "이런", "저런"]);
+  // 2글자 이상 한글 단어 추출
+  const words = text.match(/[가-힣]{2,}/g) || [];
+  return words.filter((w) => !stopwords.has(w) && w.length >= 2);
 }
 
 function extractTags(text: string): string[] {
