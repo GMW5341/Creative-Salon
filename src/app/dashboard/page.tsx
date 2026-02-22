@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import ParticleLoader from "@/components/ParticleLoader";
 import { useEffect, useState } from "react";
 
 interface Group {
@@ -34,11 +35,7 @@ export default function DashboardPage() {
   }, [status, router]);
 
   if (status === "loading" || loading) {
-    return (
-      <div className="min-h-[80vh] flex items-center justify-center">
-        <p className="text-gray-500">로딩 중...</p>
-      </div>
-    );
+    return <ParticleLoader />;
   }
 
   return (

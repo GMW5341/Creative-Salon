@@ -2,6 +2,8 @@
 
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import ParticleLoader from "@/components/ParticleLoader";
 
 interface Resource {
   id: string;
@@ -75,15 +77,17 @@ export default function ResourcesPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-[80vh] flex items-center justify-center">
-        <p className="text-gray-500">로딩 중...</p>
-      </div>
-    );
+    return <ParticleLoader />;
   }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
+      <Link
+        href={`/groups/${groupId}`}
+        className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 transition mb-4"
+      >
+        &larr; 그룹으로 돌아가기
+      </Link>
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-gray-900">자료실</h1>
         <button

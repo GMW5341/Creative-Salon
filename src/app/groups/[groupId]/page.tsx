@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import ParticleLoader from "@/components/ParticleLoader";
 
 interface Meeting {
   id: string;
@@ -59,11 +60,7 @@ export default function GroupPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-[80vh] flex items-center justify-center">
-        <p className="text-gray-500">로딩 중...</p>
-      </div>
-    );
+    return <ParticleLoader />;
   }
 
   const tabs = [
@@ -77,25 +74,25 @@ export default function GroupPage() {
       <div className="flex flex-wrap gap-2 mb-8">
         <Link
           href={`/groups/${groupId}/synaps`}
-          className="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-amber-700 transition"
+          className="bg-amber-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-amber-700 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
         >
           Synap Board
         </Link>
         <Link
           href={`/groups/${groupId}/members`}
-          className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 transition"
+          className="border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium hover:border-amber-400 hover:text-amber-700 hover:bg-amber-50 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
         >
           멤버 관리
         </Link>
         <Link
           href={`/groups/${groupId}/resources`}
-          className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 transition"
+          className="border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium hover:border-amber-400 hover:text-amber-700 hover:bg-amber-50 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
         >
           자료실
         </Link>
         <Link
           href={`/groups/${groupId}/payments`}
-          className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 transition"
+          className="border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium hover:border-amber-400 hover:text-amber-700 hover:bg-amber-50 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
         >
           결제 관리
         </Link>
@@ -140,7 +137,7 @@ export default function GroupPage() {
                 <Link
                   key={meeting.id}
                   href={`/groups/${groupId}/meetings/${meeting.id}`}
-                  className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-sm transition block"
+                  className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md hover:border-amber-200 hover:-translate-y-0.5 transition-all duration-200 block"
                 >
                   <div className="flex justify-between items-start">
                     <div>
@@ -216,7 +213,7 @@ export default function GroupPage() {
               {discussions.map((d) => (
                 <div
                   key={d.id}
-                  className="bg-white rounded-xl border border-gray-200 p-5"
+                  className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md hover:border-amber-200 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
                 >
                   <div className="flex justify-between items-start">
                     <div>

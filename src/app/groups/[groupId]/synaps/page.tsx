@@ -6,6 +6,7 @@ import Link from "next/link";
 import VoiceRecorder from "@/components/synaps/VoiceRecorder";
 import SynapCard from "@/components/synaps/SynapCard";
 import ConnectionModal from "@/components/synaps/ConnectionModal";
+import ParticleLoader from "@/components/ParticleLoader";
 
 interface Synap {
   id: string;
@@ -207,11 +208,7 @@ export default function SynapBoardPage() {
   ];
 
   if (loading) {
-    return (
-      <div className="min-h-[80vh] flex items-center justify-center">
-        <p className="text-gray-500">로딩 중...</p>
-      </div>
-    );
+    return <ParticleLoader />;
   }
 
   return (
