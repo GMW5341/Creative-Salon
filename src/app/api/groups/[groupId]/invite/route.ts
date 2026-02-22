@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
+import { sendInviteEmail } from "@/lib/email";
 
 export async function POST(
   req: NextRequest,
@@ -29,6 +30,16 @@ export async function POST(
       }
     }
 
+    // 그룹 이름 조회
+    const group = await prisma.group.findUnique({
+      where: { id: params.groupId },
+      select: { name: true },
+    });
+
+    if (!group) {
+      return NextResponse.json({ error: "모임을 찾을 수 없습니다." }, { status: 404 });
+    }
+
     const invitation = await prisma.invitation.create({
       data: {
         email,
@@ -37,6 +48,19 @@ export async function POST(
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7일
       },
     });
+
+    // 이메일 발송
+    try {
+      await sendInviteEmail({
+        to: email,
+        inviterName: user.name || "멤버",
+        groupName: group.name,
+        inviteToken: invitation.token,
+      });
+    } catch (emailError) {
+      console.error("이메일 발송 실패:", emailError);
+      // 이메일 실패해도 초대 레코드는 유지 (링크 공유로 대체 가능)
+    }
 
     return NextResponse.json(invitation, { status: 201 });
   } catch {
