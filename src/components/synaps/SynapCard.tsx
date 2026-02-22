@@ -13,10 +13,11 @@ interface SynapCardProps {
   };
   isSelected?: boolean;
   onSelect?: (synapId: string) => void;
+  onDetail?: (synapId: string) => void;
   compact?: boolean;
 }
 
-export default function SynapCard({ synap, isSelected, onSelect, compact }: SynapCardProps) {
+export default function SynapCard({ synap, isSelected, onSelect, onDetail, compact }: SynapCardProps) {
   const tags: string[] = synap.tags ? JSON.parse(synap.tags) : [];
 
   const sourceLabel: Record<string, string> = {
@@ -35,7 +36,7 @@ export default function SynapCard({ synap, isSelected, onSelect, compact }: Syna
 
   return (
     <div
-      onClick={() => onSelect?.(synap.id)}
+      onClick={() => onSelect ? onSelect(synap.id) : onDetail?.(synap.id)}
       className={`rounded-xl border p-4 transition cursor-pointer ${
         isSelected
           ? "border-amber-500 bg-amber-50 shadow-md ring-2 ring-amber-200"

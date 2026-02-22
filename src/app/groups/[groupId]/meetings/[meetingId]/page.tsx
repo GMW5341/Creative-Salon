@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import VoiceRecorder from "@/components/synaps/VoiceRecorder";
 import ExtractingOverlay from "@/components/synaps/ExtractingOverlay";
+import ThoughtBrancher from "@/components/synaps/ThoughtBrancher";
 
 interface Note {
   id: string;
@@ -26,6 +27,13 @@ export default function MeetingDetailPage() {
   const [extracting, setExtracting] = useState(false);
   const [extractedCount, setExtractedCount] = useState<number | null>(null);
 
+  // 노트 수정/삭제 상태
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const [editType, setEditType] = useState("NOTE");
+  const [editSaving, setEditSaving] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
   useEffect(() => {
     fetch(`/api/groups/${groupId}/meetings/${meetingId}/notes`)
       .then((r) => r.json())
@@ -33,7 +41,7 @@ export default function MeetingDetailPage() {
       .finally(() => setLoading(false));
   }, [groupId, meetingId]);
 
-  // 노트 저장 (추출 없이)
+  // 노트 저장
   async function addNote(e: React.FormEvent) {
     e.preventDefault();
     if (!newNote.trim()) return;
@@ -56,63 +64,45 @@ export default function MeetingDetailPage() {
     setSaving(false);
   }
 
-  // 노트 저장 + 인사이트 추출
-  async function addNoteAndExtract() {
-    if (!newNote.trim() || newNote.trim().length < 10) return;
-    setSaving(true);
-    setExtracting(true);
-    setExtractedCount(null);
-
-    // 1. 노트 저장
-    const noteRes = await fetch(
-      `/api/groups/${groupId}/meetings/${meetingId}/notes`,
+  // 노트 수정
+  async function handleUpdateNote(noteId: string) {
+    setEditSaving(true);
+    const res = await fetch(
+      `/api/groups/${groupId}/meetings/${meetingId}/notes/${noteId}`,
       {
-        method: "POST",
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: newNote, type: noteType }),
+        body: JSON.stringify({ content: editContent, type: editType }),
       }
     );
 
-    if (noteRes.ok) {
-      const note = await noteRes.json();
-      setNotes((prev) => [...prev, note]);
+    if (res.ok) {
+      const updated = await res.json();
+      setNotes((prev) => prev.map((n) => (n.id === noteId ? updated : n)));
+      setEditingNoteId(null);
     }
-
-    // 2. 인사이트 추출
-    const extractRes = await fetch(`/api/groups/${groupId}/synaps/extract`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: newNote, source: "NOTE", meetingId }),
-    });
-
-    if (extractRes.ok) {
-      const data = await extractRes.json();
-      setExtractedCount(data.count);
-    }
-
-    setNewNote("");
-    setSaving(false);
-    setExtracting(false);
+    setEditSaving(false);
   }
 
-  // 기존 노트에서 인사이트 추출
-  async function extractFromNote(note: Note) {
-    if (note.content.trim().length < 10) return;
-    setExtracting(true);
-    setExtractedCount(null);
-
-    const res = await fetch(`/api/groups/${groupId}/synaps/extract`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: note.content, source: "NOTE", meetingId }),
-    });
+  // 노트 삭제
+  async function handleDeleteNote(noteId: string) {
+    const res = await fetch(
+      `/api/groups/${groupId}/meetings/${meetingId}/notes/${noteId}`,
+      { method: "DELETE" }
+    );
 
     if (res.ok) {
-      const data = await res.json();
-      setExtractedCount(data.count);
+      setNotes((prev) => prev.filter((n) => n.id !== noteId));
+      setConfirmDeleteId(null);
     }
+  }
 
-    setExtracting(false);
+  // 수정 모드 시작
+  function startEdit(note: Note) {
+    setEditingNoteId(note.id);
+    setEditContent(note.content);
+    setEditType(note.type);
+    setConfirmDeleteId(null);
   }
 
   // 음성 녹음 → synap 추출
@@ -197,7 +187,7 @@ export default function MeetingDetailPage() {
       )}
 
       {/* 직접 기록하기 폼 */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-8">
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
         <h2 className="text-sm font-semibold text-gray-900 mb-3">
           직접 기록하기
         </h2>
@@ -225,27 +215,25 @@ export default function MeetingDetailPage() {
             className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none resize-none"
             placeholder="모임에서 나온 이야기를 기록하세요..."
           />
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={saving || !newNote.trim()}
-              className="bg-gray-200 text-gray-700 px-5 py-2 rounded-lg text-sm font-medium hover:bg-gray-300 disabled:opacity-50 transition"
-            >
-              {saving ? "저장 중..." : "기록만 추가"}
-            </button>
-            <button
-              type="button"
-              onClick={addNoteAndExtract}
-              disabled={saving || !newNote.trim() || newNote.trim().length < 10}
-              className="bg-amber-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-50 transition flex items-center gap-1.5"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              기록 + 인사이트 추출
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={saving || !newNote.trim()}
+            className="bg-amber-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-50 transition"
+          >
+            {saving ? "저장 중..." : "기록 추가"}
+          </button>
         </form>
+      </div>
+
+      {/* 텍스트에서 생각 가져가기 */}
+      <div className="mb-8">
+        <ThoughtBrancher
+          groupId={groupId}
+          meetingId={meetingId}
+          onSynapCreated={() => {
+            setExtractedCount((prev) => (prev ?? 0) + 1);
+          }}
+        />
       </div>
 
       {/* Notes List */}
@@ -257,40 +245,111 @@ export default function MeetingDetailPage() {
         </div>
       ) : (
         <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-gray-900">
+            기록 ({notes.length})
+          </h2>
           {notes.map((note) => (
             <div
               key={note.id}
               className="bg-white rounded-xl border border-gray-200 p-5 group"
             >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded font-medium ${
-                      typeColor[note.type] || typeColor.NOTE
-                    }`}
-                  >
-                    {typeLabel[note.type] || note.type}
-                  </span>
-                  <span className="text-xs text-gray-400">
-                    {new Date(note.createdAt).toLocaleTimeString("ko-KR", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
+              {editingNoteId === note.id ? (
+                /* 수정 모드 */
+                <div className="space-y-3">
+                  <div className="flex gap-2 flex-wrap">
+                    {Object.entries(typeLabel).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setEditType(value)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                          editType === value
+                            ? typeColor[value]
+                            : "bg-gray-50 text-gray-400 hover:bg-gray-100"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    rows={3}
+                    autoFocus
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none resize-none"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleUpdateNote(note.id)}
+                      disabled={editSaving || !editContent.trim()}
+                      className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-xs font-medium hover:bg-amber-700 disabled:opacity-50 transition"
+                    >
+                      {editSaving ? "저장 중..." : "저장"}
+                    </button>
+                    <button
+                      onClick={() => setEditingNoteId(null)}
+                      className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5 transition"
+                    >
+                      취소
+                    </button>
+                  </div>
                 </div>
-                {note.content.length >= 10 && (
-                  <button
-                    onClick={() => extractFromNote(note)}
-                    className="text-xs text-amber-600 hover:text-amber-700 font-medium opacity-0 group-hover:opacity-100 transition flex items-center gap-1"
-                  >
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                    인사이트 추출
-                  </button>
-                )}
-              </div>
-              <p className="text-gray-800 whitespace-pre-wrap">{note.content}</p>
+              ) : (
+                /* 보기 모드 */
+                <>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded font-medium ${
+                          typeColor[note.type] || typeColor.NOTE
+                        }`}
+                      >
+                        {typeLabel[note.type] || note.type}
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        {new Date(note.createdAt).toLocaleTimeString("ko-KR", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                    {/* 수정/삭제 버튼 (hover로 보이기) */}
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition">
+                      <button
+                        onClick={() => startEdit(note)}
+                        className="text-xs text-gray-400 hover:text-gray-600 transition"
+                      >
+                        수정
+                      </button>
+                      {confirmDeleteId === note.id ? (
+                        <span className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => handleDeleteNote(note.id)}
+                            className="text-xs text-red-500 font-medium hover:text-red-600"
+                          >
+                            삭제 확인
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="text-xs text-gray-400 hover:text-gray-600"
+                          >
+                            취소
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDeleteId(note.id)}
+                          className="text-xs text-red-400 hover:text-red-600 transition"
+                        >
+                          삭제
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-gray-800 whitespace-pre-wrap">{note.content}</p>
+                </>
+              )}
             </div>
           ))}
         </div>

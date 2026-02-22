@@ -5,8 +5,10 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import VoiceRecorder from "@/components/synaps/VoiceRecorder";
 import SynapCard from "@/components/synaps/SynapCard";
+import SynapDetailModal from "@/components/synaps/SynapDetailModal";
 import ConnectionModal from "@/components/synaps/ConnectionModal";
 import ExtractingOverlay from "@/components/synaps/ExtractingOverlay";
+import ThoughtBrancher from "@/components/synaps/ThoughtBrancher";
 import ParticleLoader from "@/components/ParticleLoader";
 
 interface Synap {
@@ -58,6 +60,9 @@ export default function SynapBoardPage() {
   const [connectMode, setConnectMode] = useState(false);
   const [selectedSynaps, setSelectedSynaps] = useState<string[]>([]);
   const [showConnectionModal, setShowConnectionModal] = useState(false);
+
+  // 상세 모달
+  const [detailSynap, setDetailSynap] = useState<Synap | null>(null);
 
   // 수동 synap 작성
   const [showManualForm, setShowManualForm] = useState(false);
@@ -151,6 +156,23 @@ export default function SynapBoardPage() {
       }
       return next.slice(0, 2);
     });
+  }
+
+  // 상세 보기
+  function handleSynapDetail(synapId: string) {
+    const synap = synaps.find((s) => s.id === synapId);
+    if (synap) setDetailSynap(synap);
+  }
+
+  // synap 수정 반영
+  function handleSynapUpdate(updated: Synap) {
+    setSynaps((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+    setDetailSynap(updated);
+  }
+
+  // synap 삭제 반영
+  function handleSynapDelete(id: string) {
+    setSynaps((prev) => prev.filter((s) => s.id !== id));
   }
 
   // 연결 생성
@@ -359,7 +381,7 @@ export default function SynapBoardPage() {
               <div className="text-4xl mb-3 opacity-30">.</div>
               <p className="text-gray-500 mb-2">아직 Synap이 없습니다</p>
               <p className="text-sm text-gray-400">
-                &lsquo;기록하기&rsquo; 탭에서 음성으로 대화를 기록하거나, 직접 Synap을 추가해보세요.
+                &lsquo;기록하기&rsquo; 탭에서 텍스트를 넣고 나만의 생각을 적어보세요.
               </p>
             </div>
           ) : (
@@ -370,6 +392,7 @@ export default function SynapBoardPage() {
                   synap={synap}
                   isSelected={selectedSynaps.includes(synap.id)}
                   onSelect={connectMode ? handleSynapSelect : undefined}
+                  onDetail={!connectMode ? handleSynapDetail : undefined}
                 />
               ))}
             </div>
@@ -452,25 +475,29 @@ export default function SynapBoardPage() {
             />
           </div>
 
-          {/* 텍스트에서 추출 */}
-          <div>
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">
-              텍스트에서 Synap 추출하기
-            </h3>
-            <TextExtractor
-              groupId={groupId}
-              onExtracted={(newSynaps) => {
-                setSynaps((prev) => [...newSynaps, ...prev]);
-                setActiveTab("synaps");
-              }}
-              onExtractingChange={setExtracting}
-            />
-          </div>
+          {/* 텍스트에서 생각 가져가기 */}
+          <ThoughtBrancher
+            groupId={groupId}
+            onSynapCreated={(synap) => {
+              setSynaps((prev) => [synap as Synap, ...prev]);
+            }}
+          />
         </div>
       )}
 
       {/* 추출 오버레이 */}
       {extracting && <ExtractingOverlay />}
+
+      {/* 상세 모달 */}
+      {detailSynap && (
+        <SynapDetailModal
+          synap={detailSynap}
+          groupId={groupId}
+          onClose={() => setDetailSynap(null)}
+          onUpdate={handleSynapUpdate}
+          onDelete={handleSynapDelete}
+        />
+      )}
 
       {/* 연결 모달 */}
       {showConnectionModal && selectedSynaps.length === 2 && (
@@ -485,59 +512,5 @@ export default function SynapBoardPage() {
         />
       )}
     </div>
-  );
-}
-
-// 텍스트 → synap 추출 서브 컴포넌트
-function TextExtractor({
-  groupId,
-  onExtracted,
-  onExtractingChange,
-}: {
-  groupId: string;
-  onExtracted: (synaps: Synap[]) => void;
-  onExtractingChange: (extracting: boolean) => void;
-}) {
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  async function handleExtract(e: React.FormEvent) {
-    e.preventDefault();
-    if (!text.trim() || text.trim().length < 10) return;
-    setBusy(true);
-    onExtractingChange(true);
-
-    const res = await fetch(`/api/groups/${groupId}/synaps/extract`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, source: "NOTE" }),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      onExtracted(data.synaps);
-      setText("");
-    }
-    setBusy(false);
-    onExtractingChange(false);
-  }
-
-  return (
-    <form onSubmit={handleExtract} className="bg-white rounded-2xl border border-gray-200 p-6">
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        rows={5}
-        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none resize-none text-sm"
-        placeholder="모임에서 나온 대화나 메모를 붙여넣으세요. AI가 인사이트를 추출합니다..."
-      />
-      <button
-        type="submit"
-        disabled={busy || text.trim().length < 10}
-        className="mt-3 bg-amber-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-50 transition"
-      >
-        {busy ? "추출 중..." : "Synap 추출하기"}
-      </button>
-    </form>
   );
 }
