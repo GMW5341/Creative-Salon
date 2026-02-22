@@ -1,6 +1,10 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResendClient() {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw new Error("RESEND_API_KEY가 설정되지 않았습니다.");
+  return new Resend(apiKey);
+}
 
 const APP_NAME = "Creative Salon";
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
@@ -24,6 +28,7 @@ export async function sendInviteEmail({
 
   const inviteUrl = `${baseUrl}/invite/${inviteToken}`;
 
+  const resend = getResendClient();
   const { data, error } = await resend.emails.send({
     from: `${APP_NAME} <${FROM_EMAIL}>`,
     to,

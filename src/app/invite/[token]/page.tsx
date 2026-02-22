@@ -8,7 +8,7 @@ import Link from "next/link";
 export default function InvitePage() {
   const params = useParams();
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const token = params.token as string;
 
   const [state, setState] = useState<"loading" | "ready" | "accepting" | "success" | "error">("loading");
@@ -72,7 +72,7 @@ export default function InvitePage() {
             <h1 className="text-xl font-bold text-gray-900 mb-2">모임 초대</h1>
             <p className="text-gray-600 mb-6">
               <strong>{invitation.inviterName}</strong>님이{" "}
-              <strong>"{invitation.groupName}"</strong> 모임에 초대했습니다.
+              <strong>&ldquo;{invitation.groupName}&rdquo;</strong> 모임에 초대했습니다.
             </p>
             <button
               onClick={handleAccept}

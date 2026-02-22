@@ -1,45 +1,38 @@
-// Claude API 클라이언트 (lazy import로 dev 모드 모듈 resolve 문제 방지)
-async function getAnthropicClient() {
+// Claude API를 fetch로 직접 호출 (SDK 의존성 제거)
+async function callClaudeAPI(messages: Array<{ role: string; content: string }>, maxTokens = 2048) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
-  const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  return new Anthropic({ apiKey });
-}
 
-// OpenAI 클라이언트 (Whisper STT용)
-async function getOpenAIClient() {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return null;
-  const { default: OpenAI } = await import("openai");
-  return new OpenAI({ apiKey });
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-5-20250929",
+      max_tokens: maxTokens,
+      messages,
+    }),
+  });
+
+  if (!response.ok) {
+    console.error("Claude API 오류:", response.status, await response.text());
+    return null;
+  }
+
+  return await response.json();
 }
 
 // ─── AI로 대화 텍스트에서 인사이트 추출 ───
 export async function extractSynapsWithAI(
   text: string
 ): Promise<Array<{ content: string; summary: string; tags: string[] }>> {
-  const client = await getAnthropicClient();
-
-  if (client) {
-    return await extractWithClaude(client, text);
-  }
-
-  // API 키 없으면 로컬 폴백
-  return extractWithLocalLogic(text);
-}
-
-async function extractWithClaude(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  client: any,
-  text: string
-): Promise<Array<{ content: string; summary: string; tags: string[] }>> {
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-5-20250929",
-    max_tokens: 2048,
-    messages: [
-      {
-        role: "user",
-        content: `다음은 모임에서 나온 대화 또는 텍스트입니다. 여기서 유의미한 인사이트 조각(Synap)을 추출해주세요.
+  const response = await callClaudeAPI([
+    {
+      role: "user",
+      content: `다음은 모임에서 나온 대화 또는 텍스트입니다. 여기서 유의미한 인사이트 조각(Synap)을 추출해주세요.
 
 규칙:
 1. 각 Synap은 독립적인 하나의 생각/관찰/통찰이어야 합니다
@@ -61,25 +54,27 @@ async function extractWithClaude(
 """
 ${text}
 """`,
-      },
-    ],
-  });
+    },
+  ]);
 
-  try {
-    const content = response.content[0];
-    if (content.type === "text") {
-      let jsonStr = content.text.trim();
-      const jsonMatch = jsonStr.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        jsonStr = jsonMatch[0];
+  if (response) {
+    try {
+      const content = response.content[0];
+      if (content.type === "text") {
+        let jsonStr = content.text.trim();
+        const jsonMatch = jsonStr.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          jsonStr = jsonMatch[0];
+        }
+        const synaps = JSON.parse(jsonStr);
+        if (Array.isArray(synaps)) return synaps;
       }
-      const synaps = JSON.parse(jsonStr);
-      return Array.isArray(synaps) ? synaps : [];
+    } catch (e) {
+      console.error("Claude 응답 파싱 실패:", e);
     }
-  } catch (e) {
-    console.error("Claude 응답 파싱 실패:", e);
   }
 
+  // API 키 없거나 실패 시 로컬 폴백
   return extractWithLocalLogic(text);
 }
 
@@ -147,8 +142,7 @@ export async function findNearbyWithAI(
   targetSynap: { content: string; summary: string },
   candidates: Array<{ id: string; content: string; summary: string }>
 ): Promise<Array<{ id: string; relevance: string }>> {
-  const client = await getAnthropicClient();
-  if (!client || candidates.length === 0) return [];
+  if (candidates.length === 0) return [];
 
   try {
     const candidateList = candidates
@@ -156,13 +150,10 @@ export async function findNearbyWithAI(
       .map((c, i) => `[${i}] "${c.summary}" — ${c.content.slice(0, 100)}`)
       .join("\n");
 
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-5-20250929",
-      max_tokens: 1024,
-      messages: [
-        {
-          role: "user",
-          content: `기준 인사이트: "${targetSynap.summary}" — ${targetSynap.content}
+    const response = await callClaudeAPI([
+      {
+        role: "user",
+        content: `기준 인사이트: "${targetSynap.summary}" — ${targetSynap.content}
 
 아래 후보 인사이트들 중에서 기준과 표면적으로는 달라 보이더라도 구조적으로 연결될 수 있는 것들을 골라주세요.
 단순한 키워드 매칭이 아니라, 깊은 수준의 유사성(유추)을 찾아주세요.
@@ -172,20 +163,21 @@ ${candidateList}
 
 관련 있는 것만 골라서 JSON으로 응답하세요:
 [{"index": 0, "relevance": "왜 연결되는지 한 줄 설명"}]`,
-        },
-      ],
-    });
+      },
+    ], 1024);
 
-    const content = response.content[0];
-    if (content.type === "text") {
-      let jsonStr = content.text.trim();
-      const jsonMatch = jsonStr.match(/\[[\s\S]*\]/);
-      if (jsonMatch) jsonStr = jsonMatch[0];
-      const results = JSON.parse(jsonStr);
-      return results.map((r: { index: number; relevance: string }) => ({
-        id: candidates[r.index]?.id,
-        relevance: r.relevance,
-      })).filter((r: { id: string | undefined }) => r.id);
+    if (response) {
+      const content = response.content[0];
+      if (content.type === "text") {
+        let jsonStr = content.text.trim();
+        const jsonMatch = jsonStr.match(/\[[\s\S]*\]/);
+        if (jsonMatch) jsonStr = jsonMatch[0];
+        const results = JSON.parse(jsonStr);
+        return results.map((r: { index: number; relevance: string }) => ({
+          id: candidates[r.index]?.id,
+          relevance: r.relevance,
+        })).filter((r: { id: string | undefined }) => r.id);
+      }
     }
   } catch (e) {
     console.error("Nearby AI 분석 실패:", e);
@@ -275,18 +267,32 @@ export async function transcribeAudio(
   audioBuffer: Buffer,
   filename: string
 ): Promise<string | null> {
-  const client = await getOpenAIClient();
-  if (!client) return null;
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
 
   try {
+    const formData = new FormData();
     const uint8 = new Uint8Array(audioBuffer);
-    const file = new File([uint8], filename, { type: "audio/webm" });
-    const transcription = await client.audio.transcriptions.create({
-      model: "whisper-1",
-      file: file,
-      language: "ko",
+    const blob = new Blob([uint8], { type: "audio/webm" });
+    formData.append("file", blob, filename);
+    formData.append("model", "whisper-1");
+    formData.append("language", "ko");
+
+    const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: formData,
     });
-    return transcription.text;
+
+    if (!response.ok) {
+      console.error("Whisper API 오류:", response.status, await response.text());
+      return null;
+    }
+
+    const result = await response.json();
+    return result.text;
   } catch (e) {
     console.error("Whisper 변환 실패:", e);
     return null;
