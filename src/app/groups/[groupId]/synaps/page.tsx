@@ -6,6 +6,7 @@ import Link from "next/link";
 import VoiceRecorder from "@/components/synaps/VoiceRecorder";
 import SynapCard from "@/components/synaps/SynapCard";
 import ConnectionModal from "@/components/synaps/ConnectionModal";
+import ExtractingOverlay from "@/components/synaps/ExtractingOverlay";
 import ParticleLoader from "@/components/ParticleLoader";
 
 interface Synap {
@@ -449,15 +450,6 @@ export default function SynapBoardPage() {
               onTranscriptReady={handleTranscript}
               disabled={extracting}
             />
-            {extracting && (
-              <div className="mt-3 flex items-center gap-2 text-sm text-amber-700">
-                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                대화에서 인사이트를 추출하고 있습니다...
-              </div>
-            )}
           </div>
 
           {/* 텍스트에서 추출 */}
@@ -465,13 +457,20 @@ export default function SynapBoardPage() {
             <h3 className="text-sm font-semibold text-gray-900 mb-3">
               텍스트에서 Synap 추출하기
             </h3>
-            <TextExtractor groupId={groupId} onExtracted={(newSynaps) => {
-              setSynaps((prev) => [...newSynaps, ...prev]);
-              setActiveTab("synaps");
-            }} />
+            <TextExtractor
+              groupId={groupId}
+              onExtracted={(newSynaps) => {
+                setSynaps((prev) => [...newSynaps, ...prev]);
+                setActiveTab("synaps");
+              }}
+              onExtractingChange={setExtracting}
+            />
           </div>
         </div>
       )}
+
+      {/* 추출 오버레이 */}
+      {extracting && <ExtractingOverlay />}
 
       {/* 연결 모달 */}
       {showConnectionModal && selectedSynaps.length === 2 && (
@@ -493,17 +492,20 @@ export default function SynapBoardPage() {
 function TextExtractor({
   groupId,
   onExtracted,
+  onExtractingChange,
 }: {
   groupId: string;
   onExtracted: (synaps: Synap[]) => void;
+  onExtractingChange: (extracting: boolean) => void;
 }) {
   const [text, setText] = useState("");
-  const [extracting, setExtracting] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   async function handleExtract(e: React.FormEvent) {
     e.preventDefault();
     if (!text.trim() || text.trim().length < 10) return;
-    setExtracting(true);
+    setBusy(true);
+    onExtractingChange(true);
 
     const res = await fetch(`/api/groups/${groupId}/synaps/extract`, {
       method: "POST",
@@ -516,7 +518,8 @@ function TextExtractor({
       onExtracted(data.synaps);
       setText("");
     }
-    setExtracting(false);
+    setBusy(false);
+    onExtractingChange(false);
   }
 
   return (
@@ -530,10 +533,10 @@ function TextExtractor({
       />
       <button
         type="submit"
-        disabled={extracting || text.trim().length < 10}
+        disabled={busy || text.trim().length < 10}
         className="mt-3 bg-amber-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-50 transition"
       >
-        {extracting ? "추출 중..." : "Synap 추출하기"}
+        {busy ? "추출 중..." : "Synap 추출하기"}
       </button>
     </form>
   );

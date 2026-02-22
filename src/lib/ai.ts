@@ -82,35 +82,51 @@ ${text}
 function extractWithLocalLogic(
   text: string
 ): Array<{ content: string; summary: string; tags: string[] }> {
+  // 한국어 문장 분리: 마침표·물음표·느낌표·줄바꿈 + 한국어 종결어미 패턴
   const sentences = text
-    .split(/[.!?\n]+/)
+    .split(/[.!?\n。]+|(?<=다|요|죠|네|나|까|지|음|함)\s+/)
     .map((s) => s.trim())
-    .filter((s) => s.length > 15);
+    .filter((s) => s.length > 10);
 
   const insights: Array<{ content: string; summary: string; tags: string[] }> = [];
 
   for (const sentence of sentences) {
-    const isInsightful =
-      sentence.includes("것 같") ||
-      sentence.includes("라고 생각") ||
-      sentence.includes("결국") ||
-      sentence.includes("왜냐하면") ||
-      sentence.includes("중요한") ||
-      sentence.includes("핵심") ||
-      sentence.includes("본질") ||
-      sentence.includes("의미") ||
-      sentence.includes("이란") ||
-      sentence.includes("아닐까") ||
-      sentence.length > 30;
+    if (sentence.length < 10) continue;
 
-    if (isInsightful) {
-      const tags = extractTags(sentence);
+    // 점수 기반: 더 관대하게 인사이트 추출
+    let score = 0;
+    // 탐색적 사고 패턴 (높은 점수)
+    if (/것 같|아닐까|수도 있|모르겠|궁금/.test(sentence)) score += 3;
+    // 주장/통찰 패턴
+    if (/라고 생각|결국|왜냐하면|핵심|본질|중요한|의미/.test(sentence)) score += 3;
+    // 일반 서술 (낮은 점수지만 긴 문장이면 포함)
+    if (sentence.length > 20) score += 1;
+    if (sentence.length > 40) score += 1;
+    // 화자 발화 패턴 (대화 기록)
+    if (/^화자\s*\d|^[A-Z]:|^.{1,5}:/.test(sentence)) score += 1;
+
+    if (score >= 1) {
+      // 화자 레이블 제거
+      const cleaned = sentence.replace(/^(화자\s*\d+|[A-Z]|.{1,5}):\s*/, "");
+      if (cleaned.length < 8) continue;
+
+      const tags = extractTags(cleaned);
       insights.push({
-        content: sentence,
-        summary: sentence.length > 40 ? sentence.slice(0, 40) + "..." : sentence,
+        content: cleaned,
+        summary: cleaned.length > 40 ? cleaned.slice(0, 40) + "..." : cleaned,
         tags,
       });
     }
+  }
+
+  // 결과가 비면 전체 텍스트를 단일 인사이트로
+  if (insights.length === 0 && text.trim().length >= 10) {
+    const cleaned = text.trim();
+    insights.push({
+      content: cleaned,
+      summary: cleaned.length > 40 ? cleaned.slice(0, 40) + "..." : cleaned,
+      tags: extractTags(cleaned),
+    });
   }
 
   return insights.slice(0, 8);

@@ -25,47 +25,68 @@ export async function POST(
     );
   }
 
-  // AI로 인사이트 추출 (API 키 없으면 로컬 폴백)
-  const extractedSynaps = await extractSynapsWithAI(text);
+  try {
+    // AI로 인사이트 추출 (API 키 없으면 로컬 폴백)
+    const extractedSynaps = await extractSynapsWithAI(text);
 
-  if (extractedSynaps.length === 0) {
+    if (extractedSynaps.length === 0) {
+      return NextResponse.json({
+        synaps: [],
+        count: 0,
+        message: "추출할 인사이트를 찾지 못했습니다. 더 긴 대화를 입력해보세요.",
+      });
+    }
+
+    const createdSynaps = await Promise.all(
+      extractedSynaps.map((synap) =>
+        prisma.synap.create({
+          data: {
+            content: synap.content,
+            summary: synap.summary,
+            tags: JSON.stringify(synap.tags),
+            source: source || "VOICE",
+            authorId: (session.user as { id: string }).id,
+            groupId,
+            meetingId: meetingId || null,
+          },
+          include: {
+            author: { select: { id: true, name: true, profileImage: true } },
+            meeting: { select: { id: true, title: true, date: true } },
+            connectionsFrom: {
+              include: {
+                toSynap: { select: { id: true, summary: true, tags: true } },
+                author: { select: { name: true } },
+              },
+            },
+            connectionsTo: {
+              include: {
+                fromSynap: { select: { id: true, summary: true, tags: true } },
+                author: { select: { name: true } },
+              },
+            },
+          },
+        })
+      )
+    );
+
+    // 음성 녹음이었다면 synapsExtracted 업데이트
+    if (meetingId) {
+      await prisma.voiceRecording.updateMany({
+        where: { meetingId, authorId: (session.user as { id: string }).id },
+        data: { synapsExtracted: createdSynaps.length, status: "PROCESSED" },
+      });
+    }
+
     return NextResponse.json({
-      synaps: [],
-      count: 0,
-      message: "추출할 인사이트를 찾지 못했습니다. 더 긴 대화를 입력해보세요.",
+      synaps: createdSynaps,
+      count: createdSynaps.length,
+      message: `${createdSynaps.length}개의 인사이트가 추출되었습니다.`,
     });
+  } catch (error) {
+    console.error("인사이트 추출 실패:", error);
+    return NextResponse.json(
+      { error: "인사이트 추출 중 오류가 발생했습니다." },
+      { status: 500 }
+    );
   }
-
-  const createdSynaps = await Promise.all(
-    extractedSynaps.map((synap) =>
-      prisma.synap.create({
-        data: {
-          content: synap.content,
-          summary: synap.summary,
-          tags: JSON.stringify(synap.tags),
-          source: source || "VOICE",
-          authorId: (session.user as { id: string }).id,
-          groupId,
-          meetingId: meetingId || null,
-        },
-        include: {
-          author: { select: { id: true, name: true, profileImage: true } },
-        },
-      })
-    )
-  );
-
-  // 음성 녹음이었다면 synapsExtracted 업데이트
-  if (meetingId) {
-    await prisma.voiceRecording.updateMany({
-      where: { meetingId, authorId: (session.user as { id: string }).id },
-      data: { synapsExtracted: createdSynaps.length, status: "PROCESSED" },
-    });
-  }
-
-  return NextResponse.json({
-    synaps: createdSynaps,
-    count: createdSynaps.length,
-    message: `${createdSynaps.length}개의 인사이트가 추출되었습니다.`,
-  });
 }
