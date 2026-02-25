@@ -4,7 +4,10 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import ParticleLoader from "@/components/ParticleLoader";
+
+const NoteGraph = dynamic(() => import("@/components/NoteGraph"), { ssr: false });
 
 interface NoteFolder {
   id: string;
@@ -29,7 +32,7 @@ interface PersonalNote {
 }
 
 type NoteType = "ALL" | "MEMO" | "WRITING" | "QUOTE" | "IDEA" | "REFLECTION" | "QUESTION";
-type ViewMode = "list" | "folders";
+type ViewMode = "list" | "folders" | "graph";
 
 const typeConfig: Record<string, { label: string; color: string; icon: string }> = {
   MEMO: { label: "메모", color: "bg-gray-100 text-gray-600", icon: "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" },
@@ -45,6 +48,7 @@ export default function MyBrainPage() {
   const router = useRouter();
 
   const [notes, setNotes] = useState<PersonalNote[]>([]);
+  const [allNotes, setAllNotes] = useState<PersonalNote[]>([]);
   const [folders, setFolders] = useState<NoteFolder[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<NoteType>("ALL");
@@ -84,6 +88,11 @@ export default function MyBrainPage() {
     if (res.ok) setFolders(await res.json());
   }, []);
 
+  const fetchAllNotes = useCallback(async () => {
+    const res = await fetch("/api/my/notes");
+    if (res.ok) setAllNotes(await res.json());
+  }, []);
+
   const fetchNotes = useCallback(async () => {
     const params = new URLSearchParams();
     if (filterType !== "ALL") params.set("type", filterType);
@@ -91,7 +100,14 @@ export default function MyBrainPage() {
     if (selectedFolderId) params.set("folderId", selectedFolderId);
 
     const res = await fetch(`/api/my/notes?${params}`);
-    if (res.ok) setNotes(await res.json());
+    if (res.ok) {
+      const data = await res.json();
+      setNotes(data);
+      // 필터 없을 때는 allNotes도 갱신
+      if (filterType === "ALL" && !searchQuery && !selectedFolderId) {
+        setAllNotes(data);
+      }
+    }
   }, [filterType, searchQuery, selectedFolderId]);
 
   useEffect(() => {
@@ -100,9 +116,9 @@ export default function MyBrainPage() {
       return;
     }
     if (status === "authenticated") {
-      Promise.all([fetchNotes(), fetchFolders()]).finally(() => setLoading(false));
+      Promise.all([fetchNotes(), fetchFolders(), fetchAllNotes()]).finally(() => setLoading(false));
     }
-  }, [status, router, fetchNotes, fetchFolders]);
+  }, [status, router, fetchNotes, fetchFolders, fetchAllNotes]);
 
   // AI 자동 정리
   async function handleOrganize() {
@@ -114,7 +130,7 @@ export default function MyBrainPage() {
       const result = await res.json();
       setOrganizeResult(result);
       // 데이터 갱신
-      await Promise.all([fetchNotes(), fetchFolders()]);
+      await Promise.all([fetchNotes(), fetchFolders(), fetchAllNotes()]);
       setViewMode("folders");
       setSelectedFolderId(null);
     }
@@ -323,6 +339,14 @@ export default function MyBrainPage() {
               }`}
             >
               폴더
+            </button>
+            <button
+              onClick={() => { setViewMode("graph"); setSelectedFolderId(null); }}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
+                viewMode === "graph" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+              }`}
+            >
+              관계도
             </button>
           </div>
         </div>
@@ -860,6 +884,11 @@ export default function MyBrainPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* 관계도 뷰 */}
+      {viewMode === "graph" && (
+        <NoteGraph notes={notes} folders={folders} allNotes={allNotes} />
       )}
 
       {/* 폴더 뷰인데 폴더도 없고 메모도 없을 때 */}
