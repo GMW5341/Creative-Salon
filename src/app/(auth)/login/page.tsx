@@ -27,7 +27,7 @@ export default function LoginPage() {
       setError(result.error);
       setLoading(false);
     } else {
-      router.push("/dashboard");
+      router.push("/my");
     }
   }
 
@@ -36,7 +36,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">로그인</h1>
-          <p className="text-gray-500 mb-6">독서모임에 돌아오신 것을 환영합니다.</p>
+          <p className="text-gray-500 mb-6">Creative Salon에 돌아오신 것을 환영합니다.</p>
 
           {error && (
             <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-4 text-sm">

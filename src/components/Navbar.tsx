@@ -3,10 +3,15 @@
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 
 export default function Navbar() {
   const { data: session } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
+  const pathname = usePathname();
+
+  const isActive = (path: string) =>
+    pathname === path || pathname?.startsWith(path + "/");
 
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
@@ -16,22 +21,42 @@ export default function Navbar() {
             <Link href="/" className="text-xl font-bold text-amber-700">
               Creative Salon
             </Link>
-            {session && (
-              <div className="hidden md:flex ml-10 space-x-4">
-                <Link
-                  href="/my"
-                  className="text-gray-600 hover:text-amber-700 px-3 py-2 text-sm font-medium"
-                >
-                  나의 뇌
-                </Link>
-                <Link
-                  href="/dashboard"
-                  className="text-gray-600 hover:text-amber-700 px-3 py-2 text-sm font-medium"
-                >
-                  모임
-                </Link>
-              </div>
-            )}
+            <div className="hidden md:flex ml-10 space-x-1">
+              <Link
+                href="/"
+                className={`px-3 py-2 text-sm font-medium rounded-lg transition ${
+                  pathname === "/"
+                    ? "text-amber-700 bg-amber-50"
+                    : "text-gray-500 hover:text-amber-700 hover:bg-gray-50"
+                }`}
+              >
+                소개
+              </Link>
+              {session && (
+                <>
+                  <Link
+                    href="/my"
+                    className={`px-3 py-2 text-sm font-medium rounded-lg transition ${
+                      isActive("/my")
+                        ? "text-amber-700 bg-amber-50"
+                        : "text-gray-500 hover:text-amber-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    나의 뇌
+                  </Link>
+                  <Link
+                    href="/dashboard"
+                    className={`px-3 py-2 text-sm font-medium rounded-lg transition ${
+                      isActive("/dashboard") || isActive("/groups")
+                        ? "text-amber-700 bg-amber-50"
+                        : "text-gray-500 hover:text-amber-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    모임
+                  </Link>
+                </>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center">
@@ -48,6 +73,13 @@ export default function Navbar() {
                 </button>
                 {menuOpen && (
                   <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+                    <Link
+                      href="/"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 md:hidden"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      소개
+                    </Link>
                     <Link
                       href="/my"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 md:hidden"
