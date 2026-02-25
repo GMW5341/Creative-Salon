@@ -259,6 +259,102 @@ ${candidateList}
   return [];
 }
 
+// ─── AI로 메모를 폴더 구조로 자동 분류 ───
+export async function organizeNotesWithAI(
+  notes: Array<{ id: string; content: string; title: string | null; type: string; tags: string | null }>,
+  existingFolders: Array<{ id: string; name: string; description: string | null }> = []
+): Promise<{
+  folders: Array<{ name: string; description: string; color: string; noteIds: string[] }>;
+}> {
+  const noteList = notes
+    .map((n, i) => {
+      const tags = n.tags ? JSON.parse(n.tags) : [];
+      return `[${i}] (id:${n.id}) ${n.title ? `"${n.title}" ` : ""}${n.content.slice(0, 150)}${n.content.length > 150 ? "..." : ""} [태그: ${tags.join(", ") || "없음"}]`;
+    })
+    .join("\n");
+
+  const existingInfo = existingFolders.length > 0
+    ? `\n기존 폴더:\n${existingFolders.map((f) => `- "${f.name}": ${f.description || "설명 없음"}`).join("\n")}\n기존 폴더에 맞는 메모는 기존 폴더 이름을 그대로 사용하세요.\n`
+    : "";
+
+  const response = await callClaudeAPI([
+    {
+      role: "user",
+      content: `당신은 메모 정리 전문가입니다. 아래 메모들을 분석하여 의미있는 폴더로 분류해주세요.
+${existingInfo}
+규칙:
+1. 메모의 핵심 주제/맥락을 파악하여 2~7개의 폴더로 분류하세요
+2. 폴더 이름은 짧고 직관적으로 (예: "독서 메모", "글쓰기 아이디어", "삶의 성찰")
+3. 하나의 메모는 가장 적합한 하나의 폴더에만 넣으세요
+4. 어디에도 맞지 않는 메모는 "미분류" 폴더에 넣으세요
+5. color는 tailwind 색상 hex 코드로 (예: "#F59E0B", "#3B82F6", "#8B5CF6")
+
+메모 목록:
+${noteList}
+
+반드시 아래 JSON 형식으로만 응답하세요:
+{
+  "folders": [
+    {
+      "name": "폴더 이름",
+      "description": "이 폴더에 모인 메모들의 공통점 한 줄 설명",
+      "color": "#hex색상",
+      "noteIds": ["id1", "id2"]
+    }
+  ]
+}`,
+    },
+  ], 2048);
+
+  if (response) {
+    try {
+      const content = response.content[0];
+      if (content.type === "text") {
+        let jsonStr = content.text.trim();
+        const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+        if (jsonMatch) jsonStr = jsonMatch[0];
+        const result = JSON.parse(jsonStr);
+        if (result.folders && Array.isArray(result.folders)) {
+          return result;
+        }
+      }
+    } catch (e) {
+      console.error("메모 분류 AI 응답 파싱 실패:", e);
+    }
+  }
+
+  // 폴백: 타입 기반 분류
+  return organizeByType(notes);
+}
+
+// AI 없이 타입 기반으로 폴백 분류
+function organizeByType(
+  notes: Array<{ id: string; content: string; title: string | null; type: string; tags: string | null }>
+): { folders: Array<{ name: string; description: string; color: string; noteIds: string[] }> } {
+  const typeToFolder: Record<string, { name: string; description: string; color: string }> = {
+    MEMO: { name: "메모", description: "일반 메모", color: "#6B7280" },
+    WRITING: { name: "글", description: "작성한 글", color: "#F59E0B" },
+    QUOTE: { name: "인용", description: "기억하고 싶은 문장", color: "#8B5CF6" },
+    IDEA: { name: "아이디어", description: "떠오른 아이디어", color: "#EAB308" },
+    REFLECTION: { name: "성찰", description: "나를 돌아보는 기록", color: "#3B82F6" },
+    QUESTION: { name: "질문", description: "궁금한 것들", color: "#22C55E" },
+  };
+
+  const grouped: Record<string, string[]> = {};
+  for (const note of notes) {
+    const key = note.type || "MEMO";
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(note.id);
+  }
+
+  const folders = Object.entries(grouped).map(([type, noteIds]) => ({
+    ...(typeToFolder[type] || typeToFolder.MEMO),
+    noteIds,
+  }));
+
+  return { folders };
+}
+
 // ─── AssemblyAI 화자 분리 + STT ───
 export interface DiarizedUtterance {
   speaker: string;

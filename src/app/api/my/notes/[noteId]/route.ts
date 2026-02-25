@@ -47,7 +47,7 @@ export async function PUT(
   }
 
   const body = await request.json();
-  const { content, title, type, tags, isPinned, imageUrl } = body;
+  const { content, title, type, tags, isPinned, imageUrl, folderId } = body;
 
   const updated = await prisma.personalNote.update({
     where: { id: params.noteId },
@@ -58,7 +58,9 @@ export async function PUT(
       ...(tags !== undefined && { tags: JSON.stringify(tags) }),
       ...(isPinned !== undefined && { isPinned }),
       ...(imageUrl !== undefined && { imageUrl }),
+      ...(folderId !== undefined && { folderId: folderId || null }),
     },
+    include: { folder: { select: { id: true, name: true, color: true } } },
   });
 
   return NextResponse.json(updated);

@@ -17,9 +17,16 @@ export async function GET(request: NextRequest) {
   const q = searchParams.get("q");
 
   const where: Record<string, unknown> = { userId };
+  const folderId = searchParams.get("folderId");
 
   if (type && type !== "ALL") {
     where.type = type;
+  }
+
+  if (folderId === "uncategorized") {
+    where.folderId = null;
+  } else if (folderId) {
+    where.folderId = folderId;
   }
 
   if (q) {
@@ -31,6 +38,7 @@ export async function GET(request: NextRequest) {
 
   const notes = await prisma.personalNote.findMany({
     where,
+    include: { folder: { select: { id: true, name: true, color: true } } },
     orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
   });
 
@@ -58,7 +66,7 @@ export async function POST(request: NextRequest) {
 
   const userId = (session.user as { id: string }).id;
   const body = await request.json();
-  const { content, title, type, tags, imageUrl } = body;
+  const { content, title, type, tags, imageUrl, folderId: noteFolderId } = body;
 
   if (!content || content.trim().length === 0) {
     return NextResponse.json({ error: "내용을 입력해주세요." }, { status: 400 });
@@ -71,8 +79,10 @@ export async function POST(request: NextRequest) {
       type: type || "MEMO",
       tags: tags ? JSON.stringify(tags) : null,
       imageUrl: imageUrl || null,
+      folderId: noteFolderId || null,
       userId,
     },
+    include: { folder: { select: { id: true, name: true, color: true } } },
   });
 
   return NextResponse.json(note, { status: 201 });

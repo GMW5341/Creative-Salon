@@ -33,6 +33,7 @@ model User {
   voiceRecordings  VoiceRecording[]
   subscriptions    Subscription[]
   personalNotes    PersonalNote[]
+  noteFolders      NoteFolder[]
 }
 
 // ─── 독서 모임 (그룹) ───
@@ -326,6 +327,24 @@ model Subscription {
   group     Group?   @relation(fields: [groupId], references: [id], onDelete: Cascade)
 }
 
+// ─── 메모 폴더 (AI 자동 분류) ───
+model NoteFolder {
+  id          String   @id @default(uuid())
+  name        String   // 폴더 이름 (AI가 생성하거나 사용자가 지정)
+  description String?  // 폴더 설명
+  color       String   @default("#6B7280") // 테마 컬러
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+
+  notes       PersonalNote[]
+
+  @@index([userId])
+}
+
 // ─── 개인 저장소 (나의 뇌) ───
 model PersonalNote {
   id        String   @id @default(uuid())
@@ -341,7 +360,11 @@ model PersonalNote {
   userId    String
   user      User     @relation(fields: [userId], references: [id])
 
+  folderId  String?
+  folder    NoteFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
   @@index([userId, createdAt(sort: Desc)])
+  @@index([folderId])
 }
 
 // ─── 알림 ───
