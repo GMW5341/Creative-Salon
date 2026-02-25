@@ -32,6 +32,7 @@ model User {
   synapConnections SynapConnection[]
   voiceRecordings  VoiceRecording[]
   subscriptions    Subscription[]
+  personalNotes    PersonalNote[]
 }
 
 // ─── 독서 모임 (그룹) ───
@@ -323,6 +324,24 @@ model Subscription {
   user      User     @relation(fields: [userId], references: [id])
   groupId   String?
   group     Group?   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+}
+
+// ─── 개인 저장소 (나의 뇌) ───
+model PersonalNote {
+  id        String   @id @default(uuid())
+  content   String   // 본문
+  title     String?  // 선택적 제목
+  type      String   @default("MEMO") // MEMO, WRITING, QUOTE, IDEA, REFLECTION, QUESTION
+  tags      String?  // JSON 배열
+  imageUrl  String?  // 이미지/그림 URL
+  isPinned  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt(sort: Desc)])
 }
 
 // ─── 알림 ───

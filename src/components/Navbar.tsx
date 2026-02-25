@@ -19,16 +19,16 @@ export default function Navbar() {
             {session && (
               <div className="hidden md:flex ml-10 space-x-4">
                 <Link
+                  href="/my"
+                  className="text-gray-600 hover:text-amber-700 px-3 py-2 text-sm font-medium"
+                >
+                  나의 뇌
+                </Link>
+                <Link
                   href="/dashboard"
                   className="text-gray-600 hover:text-amber-700 px-3 py-2 text-sm font-medium"
                 >
-                  대시보드
-                </Link>
-                <Link
-                  href="/groups/new"
-                  className="text-gray-600 hover:text-amber-700 px-3 py-2 text-sm font-medium"
-                >
-                  새 모임 만들기
+                  모임
                 </Link>
               </div>
             )}
@@ -49,11 +49,18 @@ export default function Navbar() {
                 {menuOpen && (
                   <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
                     <Link
+                      href="/my"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 md:hidden"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      나의 뇌
+                    </Link>
+                    <Link
                       href="/dashboard"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 md:hidden"
                       onClick={() => setMenuOpen(false)}
                     >
-                      대시보드
+                      모임
                     </Link>
                     <button
                       onClick={() => signOut({ callbackUrl: "/" })}
