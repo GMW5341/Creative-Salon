@@ -6,6 +6,10 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import ParticleLoader from "@/components/ParticleLoader";
+import {
+  BrainLogo, ListIcon, FolderIcon, GraphIcon, SparkleIcon,
+  PinIcon, SearchIcon, noteTypeIcons,
+} from "@/components/BrainIcons";
 
 const NoteGraph = dynamic(() => import("@/components/NoteGraph"), { ssr: false });
 
@@ -291,11 +295,14 @@ export default function MyBrainPage() {
       {/* 헤더 */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">나의 뇌</h1>
-            <p className="text-sm text-gray-400 mt-1">
-              {session?.user?.name}의 생각 저장소
-            </p>
+          <div className="flex items-center gap-3">
+            <BrainLogo size={36} />
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">나의 뇌</h1>
+              <p className="text-sm text-gray-400 mt-0.5">
+                {session?.user?.name}의 생각 저장소
+              </p>
+            </div>
           </div>
           <Link
             href="/dashboard"
@@ -326,26 +333,29 @@ export default function MyBrainPage() {
           <div className="ml-auto flex bg-gray-100 rounded-lg p-0.5">
             <button
               onClick={() => { setViewMode("list"); setSelectedFolderId(null); }}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium transition ${
                 viewMode === "list" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
               }`}
             >
+              <ListIcon size={13} />
               목록
             </button>
             <button
               onClick={() => { setViewMode("folders"); setSelectedFolderId(null); }}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium transition ${
                 viewMode === "folders" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
               }`}
             >
+              <FolderIcon size={13} />
               폴더
             </button>
             <button
               onClick={() => { setViewMode("graph"); setSelectedFolderId(null); }}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium transition ${
                 viewMode === "graph" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
               }`}
             >
+              <GraphIcon size={13} />
               관계도
             </button>
           </div>
@@ -370,9 +380,7 @@ export default function MyBrainPage() {
               </>
             ) : (
               <>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                </svg>
+                <SparkleIcon size={18} />
                 AI로 메모 자동 정리하기
               </>
             )}
@@ -610,14 +618,9 @@ export default function MyBrainPage() {
         <>
           <div className="flex gap-3 mb-4 items-center">
             <div className="relative flex-1">
-              <svg
-                className="w-4 h-4 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300">
+                <SearchIcon size={15} />
+              </span>
               <input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -662,9 +665,7 @@ export default function MyBrainPage() {
           {notes.length === 0 ? (
             <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
               <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
+                <BrainLogo size={36} />
               </div>
               <h2 className="text-lg font-semibold text-gray-900 mb-2">
                 {selectedFolderId ? "이 폴더에 메모가 없어요" : "아직 기록이 없어요"}
@@ -753,9 +754,10 @@ export default function MyBrainPage() {
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         {note.isPinned && (
-                          <span className="text-amber-500 text-xs">pinned</span>
+                          <PinIcon size={12} className="text-amber-500" />
                         )}
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${config.color}`}>
+                        <span className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium ${config.color}`}>
+                          {(() => { const Icon = noteTypeIcons[note.type]; return Icon ? <Icon size={11} /> : null; })()}
                           {config.label}
                         </span>
                         {/* 폴더 배지 (목록 뷰에서만) */}
@@ -801,14 +803,14 @@ export default function MyBrainPage() {
                         )}
                         <button
                           onClick={() => handleTogglePin(note)}
-                          className={`text-xs px-1.5 py-0.5 rounded transition ${
+                          className={`px-1 py-0.5 rounded transition ${
                             note.isPinned
                               ? "text-amber-600 hover:text-amber-700"
                               : "text-gray-400 hover:text-gray-600"
                           }`}
                           title={note.isPinned ? "고정 해제" : "상단 고정"}
                         >
-                          pin
+                          <PinIcon size={13} />
                         </button>
                         <button
                           onClick={() => startEdit(note)}
@@ -895,9 +897,7 @@ export default function MyBrainPage() {
       {viewMode === "folders" && !selectedFolderId && folders.length === 0 && (
         <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
           <div className="w-16 h-16 bg-purple-50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-            </svg>
+            <FolderIcon size={32} className="text-purple-400" />
           </div>
           <h2 className="text-lg font-semibold text-gray-900 mb-2">
             폴더가 아직 없어요

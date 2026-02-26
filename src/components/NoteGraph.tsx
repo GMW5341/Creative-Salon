@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback, useMemo } from "react";
+import { noteTypeNodePaths } from "./BrainIcons";
 
 interface NoteFolder {
   id: string;
@@ -380,8 +381,13 @@ export default function NoteGraph({
     return (
       <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
         <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-8 h-8 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+          <svg width="32" height="32" viewBox="0 0 16 16" fill="none" stroke="#818CF8" strokeWidth="1.3" strokeLinecap="round">
+            <circle cx="8" cy="4" r="2" />
+            <circle cx="3" cy="12" r="2" />
+            <circle cx="13" cy="12" r="2" />
+            <line x1="7" y1="5.8" x2="4" y2="10.2" opacity="0.5" />
+            <line x1="9" y1="5.8" x2="12" y2="10.2" opacity="0.5" />
+            <line x1="5" y1="12" x2="11" y2="12" opacity="0.3" strokeDasharray="2 1.5" />
           </svg>
         </div>
         <h2 className="text-lg font-semibold text-gray-900 mb-2">관계도를 그릴 메모가 없어요</h2>
@@ -466,21 +472,19 @@ export default function NoteGraph({
         onWheel={handleWheel}
       >
         <defs>
-          {/* 글로우 필터 */}
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-          <filter id="shadow">
-            <feDropShadow dx="0" dy="1" stdDeviation="2" floodOpacity="0.15" />
-          </filter>
+          {/* 그리드 패턴 */}
+          <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
+            <circle cx="15" cy="15" r="0.5" fill="#D1D5DB" opacity="0.4" />
+          </pattern>
+          {/* 엣지 그라데이션 */}
+          <linearGradient id="edge-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#A78BFA" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#F59E0B" stopOpacity="0.6" />
+          </linearGradient>
         </defs>
 
-        {/* 배경 (클릭 대상) */}
-        <rect x={viewBox.x} y={viewBox.y} width={viewBox.w} height={viewBox.h} fill="transparent" />
+        {/* 배경: 도트 그리드 */}
+        <rect x={viewBox.x} y={viewBox.y} width={viewBox.w} height={viewBox.h} fill="url(#grid)" />
 
         {/* 엣지 */}
         {edges.map((e, i) => {
@@ -526,39 +530,59 @@ export default function NoteGraph({
                 onMouseLeave={() => setHoveredNode(null)}
                 className="cursor-pointer"
               >
-                {/* 외곽 글로우 */}
+                {/* 외곽 글로우 (호버/선택 시 펄스) */}
                 <circle
                   cx={node.x} cy={node.y}
-                  r={node.radius + 4}
+                  r={node.radius + 6}
                   fill={node.color}
-                  opacity={isHovered || isSelected ? 0.2 : 0}
-                  style={{ transition: "opacity 0.2s" }}
+                  opacity={isHovered || isSelected ? 0.15 : 0}
+                  style={{ transition: "opacity 0.3s, r 0.3s" }}
                 />
-                {/* 메인 원 */}
+                {/* 그림자 원 */}
+                <circle
+                  cx={node.x} cy={node.y + 2}
+                  r={node.radius}
+                  fill="black"
+                  opacity={0.06}
+                />
+                {/* 메인 원: 그라데이션 배경 */}
                 <circle
                   cx={node.x} cy={node.y}
                   r={node.radius}
                   fill="white"
                   stroke={node.color}
                   strokeWidth={isSelected ? 3 : 2}
-                  filter="url(#shadow)"
                 />
-                {/* 내부 색 */}
+                {/* 내부 색 채움 */}
                 <circle
                   cx={node.x} cy={node.y}
-                  r={node.radius - 4}
+                  r={node.radius - 3}
                   fill={node.color}
-                  opacity={0.12}
+                  opacity={0.08}
                 />
-                {/* 폴더 아이콘 */}
-                <g transform={`translate(${node.x - 7}, ${node.y - 10})`}>
+                {/* 폴더 아이콘 (개선) */}
+                <g transform={`translate(${node.x - 8}, ${node.y - 10})`}>
+                  {/* 폴더 뒤 탭 */}
                   <path
-                    d="M1 4v8a1.5 1.5 0 001.5 1.5h9A1.5 1.5 0 0013 12V6a1.5 1.5 0 00-1.5-1.5H8L6.5 3h-4A1.5 1.5 0 001 4z"
+                    d="M2 4.5V12a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2H9L7.5 3H4a2 2 0 00-2 1.5z"
                     fill={node.color}
-                    opacity={0.7}
+                    opacity={0.6}
                   />
+                  {/* 폴더 앞면 */}
+                  <rect x="2" y="6" width="12" height="8" rx="1.5" fill={node.color} opacity={0.25} />
                 </g>
-                {/* 라벨 */}
+                {/* 카운트 (원 내부 하단) */}
+                <text
+                  x={node.x} y={node.y + 8}
+                  textAnchor="middle"
+                  className="text-[8px] font-bold"
+                  fill={node.color}
+                  opacity={0.7}
+                  style={{ pointerEvents: "none" }}
+                >
+                  {node.noteCount}
+                </text>
+                {/* 라벨 (원 아래) */}
                 <text
                   x={node.x} y={node.y + node.radius + 14}
                   textAnchor="middle"
@@ -566,15 +590,6 @@ export default function NoteGraph({
                   style={{ pointerEvents: "none" }}
                 >
                   {node.label}
-                </text>
-                {/* 카운트 */}
-                <text
-                  x={node.x} y={node.y + 7}
-                  textAnchor="middle"
-                  className="text-[9px] fill-gray-400"
-                  style={{ pointerEvents: "none" }}
-                >
-                  {node.noteCount}
                 </text>
               </g>
             );
@@ -614,6 +629,9 @@ export default function NoteGraph({
           }
 
           // 노트 노드
+          const noteR = isHovered || isSelected ? node.radius + 4 : node.radius;
+          const typePath = node.noteType ? noteTypeNodePaths[node.noteType] : null;
+
           return (
             <g
               key={node.id}
@@ -623,25 +641,68 @@ export default function NoteGraph({
               onMouseLeave={() => setHoveredNode(null)}
               className="cursor-pointer"
             >
+              {/* 호버 글로우 */}
+              {(isHovered || isSelected) && (
+                <circle
+                  cx={node.x} cy={node.y}
+                  r={noteR + 4}
+                  fill={node.color}
+                  opacity={0.15}
+                />
+              )}
+              {/* 외곽 원 */}
               <circle
                 cx={node.x} cy={node.y}
-                r={isHovered || isSelected ? node.radius + 3 : node.radius}
-                fill={node.color}
-                opacity={isHovered || isSelected ? 0.9 : 0.7}
-                stroke={isSelected ? node.color : "white"}
-                strokeWidth={isSelected ? 2 : 1}
-                style={{ transition: "r 0.15s, opacity 0.15s" }}
+                r={noteR}
+                fill="white"
+                stroke={node.color}
+                strokeWidth={isSelected ? 2 : 1.2}
+                style={{ transition: "r 0.2s" }}
               />
-              {/* 호버 시 라벨 */}
+              {/* 내부 채움 */}
+              <circle
+                cx={node.x} cy={node.y}
+                r={noteR - 1.5}
+                fill={node.color}
+                opacity={isHovered || isSelected ? 0.25 : 0.12}
+                style={{ transition: "opacity 0.2s" }}
+              />
+              {/* 타입 아이콘 (호버/선택 시) */}
+              {(isHovered || isSelected) && typePath && (
+                <g transform={`translate(${node.x - 5}, ${node.y - 5}) scale(0.7)`}>
+                  <path
+                    d={typePath.path}
+                    fill="none"
+                    stroke={node.color}
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </g>
+              )}
+              {/* 호버 라벨 */}
               {(isHovered || isSelected) && (
-                <text
-                  x={node.x} y={node.y - node.radius - 6}
-                  textAnchor="middle"
-                  className="text-[9px] fill-gray-600 font-medium"
-                  style={{ pointerEvents: "none" }}
-                >
-                  {node.label.length > 25 ? node.label.slice(0, 25) + "..." : node.label}
-                </text>
+                <g style={{ pointerEvents: "none" }}>
+                  {/* 라벨 배경 */}
+                  <rect
+                    x={node.x - Math.min(node.label.length * 3.5, 70)}
+                    y={node.y - noteR - 18}
+                    width={Math.min(node.label.length * 7, 140)}
+                    height={14}
+                    rx={4}
+                    fill="white"
+                    stroke="#E5E7EB"
+                    strokeWidth={0.5}
+                    opacity={0.95}
+                  />
+                  <text
+                    x={node.x} y={node.y - noteR - 8}
+                    textAnchor="middle"
+                    className="text-[8px] fill-gray-600 font-medium"
+                  >
+                    {node.label.length > 20 ? node.label.slice(0, 20) + "..." : node.label}
+                  </text>
+                </g>
               )}
             </g>
           );
