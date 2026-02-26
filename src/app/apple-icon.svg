@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="180" y2="180">
+      <stop offset="0%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#D946EF"/>
+    </linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="180" y2="180">
+      <stop offset="0%" stop-color="#FFFBEB"/>
+      <stop offset="100%" stop-color="#FAF5FF"/>
+    </linearGradient>
+  </defs>
+  <!-- 배경 -->
+  <rect width="180" height="180" rx="40" fill="url(#bg)"/>
+  <rect width="180" height="180" rx="40" fill="none" stroke="url(#g)" stroke-width="3" opacity="0.2"/>
+  <!-- 뇌 외곽 -->
+  <path d="M90 30c-22 0-40 12-40 30 0 7 2.5 14 6.5 19-4 5-6.5 11-6.5 18 0 18 14 32 38 40 1.5.5 3 .8 4.5.8s3-.3 4.5-.8c24-8 38-22 38-40 0-7-2.5-13-6.5-18 4-5 6.5-12 6.5-19 0-18-18-30-45-30z" fill="none" stroke="url(#g)" stroke-width="8" stroke-linecap="round"/>
+  <!-- 중앙 홈 -->
+  <line x1="90" y1="45" x2="90" y2="130" stroke="url(#g)" stroke-width="4" opacity="0.3"/>
+  <!-- 좌뇌 주름 -->
+  <path d="M65 60c8 3 13 10 11 18" stroke="url(#g)" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <path d="M60 90c10 2 15 8 13 16" stroke="url(#g)" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <!-- 우뇌 주름 -->
+  <path d="M115 60c-8 3-13 10-11 18" stroke="url(#g)" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <path d="M120 90c-10 2-15 8-13 16" stroke="url(#g)" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <!-- 시냅스 포인트 -->
+  <circle cx="62" cy="70" r="7" fill="#F59E0B" opacity="0.85"/>
+  <circle cx="118" cy="70" r="7" fill="#D946EF" opacity="0.85"/>
+  <circle cx="75" cy="100" r="5.5" fill="#F59E0B" opacity="0.55"/>
+  <circle cx="105" cy="100" r="5.5" fill="#D946EF" opacity="0.55"/>
+  <!-- 중앙 하이라이트 -->
+  <circle cx="90" cy="70" r="3" fill="url(#g)" opacity="0.3"/>
+</svg>
